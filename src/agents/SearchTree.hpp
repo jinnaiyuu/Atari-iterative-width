@@ -161,6 +161,7 @@ class SearchTree {
     //   to get_num_simulation_steps() 
     long total_simulation_steps;
     
+
     StellaEnvironment* m_env;
 
     unsigned m_expanded_nodes;
@@ -172,6 +173,10 @@ class SearchTree {
     bool   m_novelty_pruning;
     bool             m_player_B;    
     bool             m_randomize_successor;
+
+    unsigned int m_total_simulation_steps; //
+    long long m_emulation_time;
+
 };
 
 #endif // __SEARCH_TREE_HPP__

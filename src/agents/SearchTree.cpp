@@ -16,6 +16,9 @@
 #include "SearchTree.hpp"
 #include "random_tools.h"
 
+//#include <time.h>
+#include <chrono>
+
 /* *********************************************************************
  Constructor
  ******************************************************************* */
@@ -45,6 +48,8 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 			false);
 	m_novelty_pruning = false;
 	m_player_B = false;
+
+	m_emulation_time = 0.0;
 }
 
 /* *********************************************************************
@@ -208,6 +213,13 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 
 	int i;
 
+//	time_t start, end;
+//	time(&start);
+//	std::chrono::steady_clock::time_point start =
+//			std::chrono::steady_clock::now();
+
+	auto start = std::chrono::high_resolution_clock::now();
+
 	for (i = 0; i < num_steps; i++) {
 		if (act == RANDOM && i % sim_steps_per_node == 0)
 			a = choice(&available_actions);
@@ -239,6 +251,21 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 			break;
 		}
 	}
+
+//	time(&end);
+//	std::chrono::steady_clock::time_point end =
+//			std::chrono::steady_clock::now();
+//
+//	typedef std::chrono::duration<int, std::milli> millisecs_t;
+//	millisecs_t duration(std::chrono::duration_cast<millisecs_t>(end - start));
+//	printf("%.2f millisecnds.\n", duration.count());
+
+	auto elapsed = std::chrono::high_resolution_clock::now() - start;
+	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+//	printf("t=%.2f, %lld, microseconds);
+
+	m_emulation_time += microseconds;
+	m_total_simulation_steps += i;
 
 	// Save the result
 	if (save_state)
@@ -304,6 +331,9 @@ void SearchTree::print_frame_data(int frame_number, float elapsed,
 	output << ",best_action=" << action_to_string(curr_action);
 	output << ",branch_reward=" << get_root_value();
 	output << ",elapsed=" << elapsed;
+	output << ",total_simulation_steps=" << m_total_simulation_steps;
+	output << ",emulation_time=" << m_emulation_time;
 	m_rom_settings->print(output);
 	output << std::endl;
+
 }

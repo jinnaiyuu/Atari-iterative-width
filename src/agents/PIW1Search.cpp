@@ -580,6 +580,8 @@ void PIW1Search::print_frame_data(int frame_number, float elapsed,
 	output << ",best_action=" << action_to_string(curr_action);
 	output << ",branch_reward=" << get_root_value();
 	output << ",elapsed=" << elapsed;
+	output << ",total_simulation_steps=" << total_simulation_steps;
+	output << ",emulation_time=" << m_emulation_time;
 	m_rom_settings->print(output);
 	output << std::endl;
 }

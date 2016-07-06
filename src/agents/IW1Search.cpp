@@ -285,6 +285,7 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 		std::cout << "\tExpanded so far: " << m_expanded_nodes << std::endl;
 		std::cout << "\tPruned so far: " << m_pruned_nodes << std::endl;
 		std::cout << "\tGenerated so far: " << m_generated_nodes << std::endl;
+//		std::cout << "\tSimulated steps: " << num_simulated_steps
 
 		if (q.empty())
 			std::cout << "Search Space Exhausted!" << std::endl;
@@ -400,6 +401,8 @@ void IW1Search::print_frame_data(int frame_number, float elapsed,
 	output << ",best_action=" << action_to_string(curr_action);
 	output << ",branch_reward=" << get_root_value();
 	output << ",elapsed=" << elapsed;
+	output << ",total_simulation_steps=" << m_total_simulation_steps;
+	output << ",emulation_time=" << m_emulation_time;
 	m_rom_settings->print(output);
 	output << std::endl;
 }

@@ -222,5 +222,8 @@ void	BreadthFirstSearch::print_frame_data( int frame_number, float elapsed, Acti
 	output << ",tree_size=" <<  num_nodes(); 
 	output << ",best_action=" << action_to_string( curr_action );
 	output << ",branch_reward=" << get_root_value();
-	output << ",elapsed=" << elapsed << std::endl;
+	output << ",elapsed=" << elapsed;
+	output << ",total_simulation_steps=" << m_total_simulation_steps;
+	output << ",emulation_time=" << m_emulation_time;
+	output << std::endl;
 }
