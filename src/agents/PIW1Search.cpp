@@ -29,7 +29,8 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 	// TODO: parameterize
 //	ignore_duplicates = true;
 
-	m_expand_all_emulated_nodes = settings.getBool("expand_all_emulated_nodes", false);
+	m_expand_all_emulated_nodes = settings.getBool("expand_all_emulated_nodes",
+			false);
 
 	if (m_expand_all_emulated_nodes) {
 		printf("Expands all previously emulated nodes\n");
@@ -219,6 +220,7 @@ bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
 	return false;
 }
 
+// TODO: This should be called BEFORE we update the reward table.
 int PIW1Search::check_novelty(const ALERAM& machine_state,
 		reward_t accumulated_reward) {
 	int novelty = 0;
@@ -247,7 +249,7 @@ int PIW1Search::calc_fn(const ALERAM& machine_state,
 	int n_novelty = check_novelty(machine_state, accumulated_reward);
 
 	double k = 1.0;
-	return n_novelty + k * (double) accumulated_reward;
+	return n_novelty + (int) (k * (double) accumulated_reward);
 }
 
 int PIW1Search::expand_node(TreeNode* curr_node,
@@ -282,7 +284,13 @@ int PIW1Search::expand_node(TreeNode* curr_node,
 			// Pruning is executed when the node is generated.
 			if (check_novelty_1(child->state.getRAM(),
 					child->accumulated_reward)) {
-//				printf("found novel state\n");
+				printf("state: novelty= %d reward= %d fn=%d\n",
+						check_novelty(child->state.getRAM(),
+								child->accumulated_reward),
+						child->accumulated_reward,
+						calc_fn(child->state.getRAM(),
+								child->accumulated_reward));
+
 				update_novelty_table(child->state.getRAM(),
 						child->accumulated_reward);
 

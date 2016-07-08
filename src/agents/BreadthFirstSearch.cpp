@@ -225,5 +225,6 @@ void	BreadthFirstSearch::print_frame_data( int frame_number, float elapsed, Acti
 	output << ",elapsed=" << elapsed;
 	output << ",total_simulation_steps=" << m_total_simulation_steps;
 	output << ",emulation_time=" << m_emulation_time;
+	output << ",context_switching_time=" << m_context_time;
 	output << std::endl;
 }

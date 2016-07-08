@@ -49,7 +49,8 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 	m_novelty_pruning = false;
 	m_player_B = false;
 
-	m_emulation_time = 0.0;
+	m_emulation_time = 0;
+	m_context_time = 0;
 }
 
 /* *********************************************************************
@@ -197,7 +198,16 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 		bool save_state) {
 
 	// Load the state into the emulator - a copy of the parent state
+	auto context_start = std::chrono::high_resolution_clock::now();
+
 	m_env->restoreState(state);
+
+	auto context_elapsed = std::chrono::high_resolution_clock::now() - context_start;
+	long long context_microseconds = std::chrono::duration_cast<std::chrono::microseconds>(context_elapsed).count();
+//	printf("t=%.2f, %lld, microseconds);
+
+	m_context_time += context_microseconds;
+
 
 	// For discounting purposes
 	float g = 1.0;

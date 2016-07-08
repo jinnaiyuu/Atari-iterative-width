@@ -176,6 +176,7 @@ class SearchTree {
 
     unsigned int m_total_simulation_steps; //
     long long m_emulation_time;
+    long long m_context_time;
 
 };
 
