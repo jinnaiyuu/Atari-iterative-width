@@ -35,6 +35,12 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 	if (m_expand_all_emulated_nodes) {
 		printf("Expands all previously emulated nodes\n");
 	}
+
+	m_priority_queue = settings.getString("priority_queue", false);
+	if (m_priority_queue.empty()) {
+		m_priority_queue == "reward";
+	}
+	printf("priority_queue %s\n", m_priority_queue.c_str());
 }
 
 PIW1Search::~PIW1Search() {
@@ -197,9 +203,9 @@ bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
 //				}
 
 				if (accumulated_reward > m_ram_reward_table_true[8 * i + j]) {
-					printf("update: curr_reward= %d table_reward= %d\n",
-							accumulated_reward,
-							m_ram_reward_table_true[8 * i + j]);
+//					printf("update: curr_reward= %d table_reward= %d\n",
+//							accumulated_reward,
+//							m_ram_reward_table_true[8 * i + j]);
 					return true;
 				}
 			} else {
@@ -209,9 +215,9 @@ bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
 //				}
 
 				if (accumulated_reward > m_ram_reward_table_false[8 * i + j]) {
-					printf("update: curr_reward= %d table_reward= %d\n",
-							accumulated_reward,
-							m_ram_reward_table_false[8 * i + j]);
+//					printf("update: curr_reward= %d table_reward= %d\n",
+//							accumulated_reward,
+//							m_ram_reward_table_false[8 * i + j]);
 					return true;
 				}
 			}
@@ -252,9 +258,7 @@ int PIW1Search::calc_fn(const ALERAM& machine_state,
 	return n_novelty + (int) (k * (double) accumulated_reward);
 }
 
-int PIW1Search::expand_node(TreeNode* curr_node,
-		std::priority_queue<TreeNode*, std::vector<TreeNode*>,
-				TreeNodeComparerReward>& q) {
+int PIW1Search::expand_node(TreeNode* curr_node) {
 	int num_simulated_steps = 0;
 	int num_actions = available_actions.size();
 	bool leaf_node = (curr_node->v_children.empty());
@@ -284,12 +288,16 @@ int PIW1Search::expand_node(TreeNode* curr_node,
 			// Pruning is executed when the node is generated.
 			if (check_novelty_1(child->state.getRAM(),
 					child->accumulated_reward)) {
-				printf("state: novelty= %d reward= %d fn=%d\n",
-						check_novelty(child->state.getRAM(),
-								child->accumulated_reward),
-						child->accumulated_reward,
-						calc_fn(child->state.getRAM(),
-								child->accumulated_reward));
+
+				child->additive_novelty = check_novelty(child->state.getRAM(),
+						child->accumulated_reward);
+
+				child->fn = calc_fn(child->state.getRAM(),
+						child->accumulated_reward); // TODO: duplicated calculation
+
+//				printf("state: novelty= %d reward= %d fn=%d\n",
+//						child->additive_novelty, child->accumulated_reward,
+//						child->fn);
 
 				update_novelty_table(child->state.getRAM(),
 						child->accumulated_reward);
@@ -320,6 +328,18 @@ int PIW1Search::expand_node(TreeNode* curr_node,
 				if (child->is_terminal) {
 					if (check_novelty_1(child->state.getRAM(),
 							child->accumulated_reward)) {
+
+						child->additive_novelty = check_novelty(
+								child->state.getRAM(),
+								child->accumulated_reward);
+
+						child->fn = calc_fn(child->state.getRAM(),
+								child->accumulated_reward); // TODO: duplicated calculation
+
+//						printf("state: novelty= %d reward= %d fn=%d\n",
+//								child->additive_novelty,
+//								child->accumulated_reward, child->fn);
+
 						update_novelty_table(child->state.getRAM(),
 								child->accumulated_reward);
 
@@ -351,7 +371,13 @@ int PIW1Search::expand_node(TreeNode* curr_node,
 		if (!child->is_terminal) {
 			if (!(ignore_duplicates && test_duplicate_reward(child)))
 				if (child->num_nodes_reusable < max_nodes_per_frame) {
-					q.push(child);
+					if (m_priority_queue == "reward") {
+						m_q_reward.push(child);
+					} else if (m_priority_queue == "novelty") {
+						m_q_novelty.push(child);
+					} else {
+
+					}
 //					printf("node gend\n");
 				}
 
@@ -380,10 +406,12 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 	}
 
 //	queue<TreeNode*> q;
-	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
-			TreeNodeComparerReward> q;
+//	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+//			TreeNodeComparerReward> q;
+
 //	q = new priority_queue<TreeNode*, std::vector<TreeNode*>,
 //			TreeNodeComparerReward>();
+
 	std::list<TreeNode*> pivots;
 
 //q.push(start_node);
@@ -406,7 +434,7 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 		std::cout << "First pivot reward: " << pivots.front()->node_reward
 				<< std::endl;
 		pivots.front()->m_depth = 0;
-		int steps = expand_node(pivots.front(), q);
+		int steps = expand_node(pivots.front());
 		num_simulated_steps += steps;
 
 		if (num_simulated_steps >= max_sim_steps_per_frame) {
@@ -415,31 +443,67 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 
 		pivots.pop_front();
 
-		while (!q.empty()) {
-			// Pop a node to expand
-			TreeNode* curr_node = q.top();
-			q.pop();
 
-			if (curr_node->depth() > m_reward_horizon - 1)
-				continue;
-			if (m_stop_on_first_reward && curr_node->node_reward != 0) {
-				pivots.push_back(curr_node);
-				continue;
-			}
-			steps = expand_node(curr_node, q);
-			num_simulated_steps += steps;
-			// Stop once we have simulated a maximum number of steps
-			if (num_simulated_steps >= max_sim_steps_per_frame) {
-				break;
-			}
+		// TODO: REFACTOR multiple priority queues.
+		if (m_priority_queue == "reward") {
+			while (!m_q_reward.empty()) {
+				// Pop a node to expand
+				TreeNode* curr_node = m_q_reward.top();
+				m_q_reward.pop();
 
+				if (curr_node->depth() > m_reward_horizon - 1)
+					continue;
+				if (m_stop_on_first_reward && curr_node->node_reward != 0) {
+					pivots.push_back(curr_node);
+					continue;
+				}
+				steps = expand_node(curr_node);
+				num_simulated_steps += steps;
+				// Stop once we have simulated a maximum number of steps
+				if (num_simulated_steps >= max_sim_steps_per_frame) {
+					break;
+				}
+
+			}
+			std::cout << "\tExpanded so far: " << m_expanded_nodes << std::endl;
+			std::cout << "\tPruned so far: " << m_pruned_nodes << std::endl;
+			std::cout << "\tGenerated so far: " << m_generated_nodes
+					<< std::endl;
+
+			if (m_q_reward.empty())
+				std::cout << "Search Space Exhausted!" << std::endl;
+		} else if (m_priority_queue == "novelty") {
+			while (!m_q_novelty.empty()) {
+				// Pop a node to expand
+				TreeNode* curr_node = m_q_novelty.top();
+				m_q_novelty.pop();
+
+				if (curr_node->depth() > m_reward_horizon - 1)
+					continue;
+				if (m_stop_on_first_reward && curr_node->node_reward != 0) {
+					pivots.push_back(curr_node);
+					continue;
+				}
+				steps = expand_node(curr_node);
+				num_simulated_steps += steps;
+				// Stop once we have simulated a maximum number of steps
+				if (num_simulated_steps >= max_sim_steps_per_frame) {
+					break;
+				}
+
+			}
+			std::cout << "\tExpanded so far: " << m_expanded_nodes << std::endl;
+			std::cout << "\tPruned so far: " << m_pruned_nodes << std::endl;
+			std::cout << "\tGenerated so far: " << m_generated_nodes
+					<< std::endl;
+
+			if (m_q_novelty.empty())
+				std::cout << "Search Space Exhausted!" << std::endl;
+		} else {
+			printf("undefined priority queue error: %s\n",
+					m_priority_queue.c_str());
 		}
-		std::cout << "\tExpanded so far: " << m_expanded_nodes << std::endl;
-		std::cout << "\tPruned so far: " << m_pruned_nodes << std::endl;
-		std::cout << "\tGenerated so far: " << m_generated_nodes << std::endl;
 
-		if (q.empty())
-			std::cout << "Search Space Exhausted!" << std::endl;
 		// Stop once we have simulated a maximum number of steps
 		if (num_simulated_steps >= max_sim_steps_per_frame) {
 			break;
@@ -456,6 +520,14 @@ void PIW1Search::clear() {
 	m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
 	m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
 
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerReward> emptyr;
+	std::swap(m_q_reward, emptyr);
+
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerAdditiveNovelty> emptyn;
+	std::swap(m_q_novelty, emptyn);
+
 //	if (m_novelty_boolean_representation) {
 //		m_ram_novelty_table_true->clear();
 //		m_ram_novelty_table_false->clear();
@@ -468,6 +540,14 @@ void PIW1Search::move_to_best_sub_branch() {
 	int minus_inf = numeric_limits<int>::min();
 	m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
 	m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerReward> emptyr;
+	std::swap(m_q_reward, emptyr);
+
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerAdditiveNovelty> emptyn;
+	std::swap(m_q_novelty, emptyn);
 
 //	if (m_novelty_boolean_representation) {
 //		m_ram_novelty_table_true->clear();

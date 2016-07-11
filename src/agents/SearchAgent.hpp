@@ -38,6 +38,7 @@ class SearchAgent : public PlayerAgent {
 
         virtual Action agent_step();
 
+
 	protected:
         /* *********************************************************************
             Returns the best action from the set of possible actions

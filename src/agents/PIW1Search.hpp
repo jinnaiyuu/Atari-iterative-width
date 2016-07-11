@@ -28,6 +28,20 @@ public:
 		}
 	};
 
+	class TreeNodeComparerAdditiveNovelty {
+	public:
+		// TODO: IMPORTANT: Note that std::priority_queue puts the LEAST
+		// significant node to the top. Therefore, THE SMALLER THE BETTER, thus accumulated reward should be flipped.
+		bool operator()(TreeNode* a, TreeNode* b) const {
+			if (b->additive_novelty > a->additive_novelty)
+				return true;
+			else if (b->fn == a->fn
+					&& b->accumulated_reward > a->accumulated_reward)
+				return true;
+			return false;
+		}
+	};
+
 	// Fn is defined in PIW1Search.cpp. as a function of reward and (additive)novelty.
 	class TreeNodeComparerFunction {
 	public:
@@ -43,9 +57,10 @@ public:
 
 	virtual void update_tree();
 //	virtual int expand_node(TreeNode* n, queue<TreeNode*>& q);
-	virtual int expand_node(TreeNode* n,
-			std::priority_queue<TreeNode*, std::vector<TreeNode*>,
-					TreeNodeComparerReward>& q);
+	virtual int expand_node(TreeNode* n);
+//	virtual int expand_node(TreeNode* n,
+//			std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+//					TreeNodeComparerReward>& q);
 
 	int expanded() const {
 		return m_expanded_nodes;
@@ -90,8 +105,10 @@ protected:
 
 	bool test_duplicate_reward(TreeNode * node);
 
-//	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
-//			TreeNodeComparerReward>* q;
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerReward> m_q_reward;
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerAdditiveNovelty> m_q_novelty;
 
 	ALERAM m_ram;
 //	aptk::Bit_Matrix* m_ram_novelty_table; // TODO: replace with reward table.
@@ -106,6 +123,8 @@ protected:
 	bool m_novelty_boolean_representation;
 
 	bool m_expand_all_emulated_nodes; // True if we do not prune already emulated nodes because these nodes do not require additional computational overhead.
+
+	string m_priority_queue;
 };
 
 #endif // __IW_SEARCH_HPP__
