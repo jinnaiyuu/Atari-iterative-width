@@ -117,6 +117,8 @@ protected:
 
 	std::vector<int> m_ram_reward_table_true;
 	std::vector<int> m_ram_reward_table_false;
+	std::vector<int> m_ram_reward_table_byte;
+
 	unsigned m_pruned_nodes;
 	bool m_stop_on_first_reward;
 	unsigned m_reward_horizon;

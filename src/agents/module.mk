@@ -8,6 +8,7 @@ MODULE_OBJS := \
 	src/agents/SDLKeyboardAgent.o \
 	src/agents/SimpleBanditAgent.o \
 	src/agents/SearchAgent.o \
+	src/agents/ActionSequenceDetection.o \
 	src/agents/SearchTree.o \
 	src/agents/TreeNode.o \
 	src/agents/FullSearchTree.o \

@@ -18,6 +18,7 @@
 
 //#include <time.h>
 #include <chrono>
+#include "ActionSequenceDetection.hpp"
 
 /* *********************************************************************
  Constructor
@@ -51,6 +52,33 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	m_emulation_time = 0;
 	m_context_time = 0;
+
+	action_sequence_detection = settings.getBool("action_sequence_detection",
+			false);
+
+	if (action_sequence_detection) {
+		printf("RUNNING ACTION SEQUENCE DETECTION\n");
+		asd = new ActionSequenceDetection();
+		junk_decision_frame = settings.getInt("junk_decision_frame", false);
+		junk_resurrection_frame = settings.getInt("junk_resurrection_frame",
+				false);
+		longest_junk_sequence = settings.getInt("longest_junk_sequence", false);
+
+		if (junk_decision_frame < 0) {
+			junk_decision_frame = 12 * 5; // 5 seconds in game
+		}
+
+		if (junk_decision_frame < 0) {
+			junk_resurrection_frame = 20;
+		}
+
+		if (longest_junk_sequence < 0) {
+			longest_junk_sequence = 2;
+		}
+
+		current_junk_length = 1;
+	}
+
 }
 
 /* *********************************************************************
@@ -70,6 +98,10 @@ void SearchTree::clear(void) {
  ******************************************************************* */
 SearchTree::~SearchTree(void) {
 	clear();
+
+	if (action_sequence_detection > 0) {
+		delete asd;
+	}
 }
 
 /* *********************************************************************
@@ -202,12 +234,13 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 
 	m_env->restoreState(state);
 
-	auto context_elapsed = std::chrono::high_resolution_clock::now() - context_start;
-	long long context_microseconds = std::chrono::duration_cast<std::chrono::microseconds>(context_elapsed).count();
+	auto context_elapsed = std::chrono::high_resolution_clock::now()
+			- context_start;
+	long long context_microseconds = std::chrono::duration_cast
+			< std::chrono::microseconds > (context_elapsed).count();
 //	printf("t=%.2f, %lld, microseconds);
 
 	m_context_time += context_microseconds;
-
 
 	// For discounting purposes
 	float g = 1.0;
@@ -271,7 +304,8 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 //	printf("%.2f millisecnds.\n", duration.count());
 
 	auto elapsed = std::chrono::high_resolution_clock::now() - start;
-	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+	long long microseconds = std::chrono::duration_cast
+			< std::chrono::microseconds > (elapsed).count();
 //	printf("t=%.2f, %lld, microseconds);
 
 	m_emulation_time += microseconds;
@@ -346,4 +380,48 @@ void SearchTree::print_frame_data(int frame_number, float elapsed,
 	m_rom_settings->print(output);
 	output << std::endl;
 
+}
+
+void SearchTree::getJunkActionSequence(int frame_number) {
+	if (action_sequence_detection) {
+		if (frame_number > 0 && (frame_number / 5) % junk_decision_frame == 0) {
+			if (longest_junk_sequence > current_junk_length) {
+				++current_junk_length;
+			}
+		}
+
+		asd->getJunkActionSequence(this, current_junk_length);
+
+	}
+}
+
+std::vector<bool> SearchTree::getUsefulActions(vector<Action> previousActions) {
+	return asd->getUsefulActions(previousActions);
+}
+
+std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,
+		int seqLength) {
+	std::vector<Action> previousActions;
+	previousActions.resize(seqLength);
+
+	TreeNode* curr = node;
+	int currLength = seqLength;
+
+	while (currLength > 0) {
+		if (curr == p_root) {
+			previousActions.assign(trajectory.end() - currLength,
+					trajectory.end());
+			break;
+		}
+		previousActions[currLength - 1] = curr->act;
+		curr = node->p_parent;
+		currLength--;
+	}
+	return previousActions;
+}
+
+void SearchTree::saveUsedAction(int frame_number, Action action) {
+	if (action_sequence_detection) {
+		trajectory.push_back(action);
+	}
 }

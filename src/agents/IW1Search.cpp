@@ -1,6 +1,7 @@
 #include "IW1Search.hpp"
 #include "SearchAgent.hpp"
 #include <list>
+#include "ActionSequenceDetection.hpp"
 
 IW1Search::IW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -155,8 +156,48 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 					curr_node->available_actions.end());
 
 	}
+
+	vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+	if (action_sequence_detection) {
+		if (!trajectory.empty()) {
+			vector<Action> p;
+			// TODO: p length = current_junk_length - 1
+//			p.resize(current_junk_length - 1);
+			getPreviousActions(curr_node, current_junk_length - 1);
+			if (current_junk_length - 1 > 0) {
+//				p.push_back(curr_node->act);
+//				p.assign(trajectory.end() - 1, trajectory.end());
+				isUsefulAction = asd->getUsefulActions(p);
+//				for (int i = 0; i < PLAYER_A_MAX; ++i) {
+//					if (isUsefulAction[i]) {
+//						printf("o");
+//					} else {
+//						printf("x");
+//					}
+//				}
+//				printf("\n");
+			}
+		}
+	}
+
 	for (int a = 0; a < num_actions; a++) {
 		Action act = curr_node->available_actions[a];
+
+		if (action_sequence_detection) {
+			if (curr_node != p_root) {
+				if (!isUsefulAction[act]) {
+//					printf("Pruned %d\n", (int) a,
+//							action_to_string((Action) a).c_str());
+					// TODO: generate dummy node
+					TreeNode * child;
+					child = new TreeNode(curr_node, curr_node->state, this, act,
+							0);
+					curr_node->v_children[a] = child;
+					child->is_terminal = true;
+					continue;
+				}
+			}
+		}
 
 		TreeNode * child;
 

@@ -26,8 +26,10 @@
 #include <fstream>
 #include <limits>
 
-class SearchAgent;
+//#include "ActionSequenceDetection.hpp"
 
+class SearchAgent;
+class ActionSequenceDetection;
 
 class SearchTree {
     /* *************************************************************************
@@ -120,6 +122,9 @@ class SearchTree {
 
 	virtual	void print_frame_data( int frame_number, float elapsed, Action curr_action, std::ostream& output );
 
+	void getJunkActionSequence(int frame_number);
+	void saveUsedAction(int frame_number, Action action);
+
 	protected:	
 
 
@@ -131,6 +136,9 @@ class SearchTree {
     /** Returns true if this node has a sibling with the same resulting state;
       *  also sets the node's duplicate flag to true in that case. */
     bool test_duplicate(TreeNode * node);
+
+    std::vector<bool> getUsefulActions(vector<Action> previousActions);
+    std::vector<Action> getPreviousActions(TreeNode* node, int seqLength);
 
   protected:
 
@@ -178,6 +186,17 @@ class SearchTree {
     long long m_emulation_time;
     long long m_context_time;
 
+	// Action Sequence Detection
+	bool action_sequence_detection; // true if it applies ASD.
+	int junk_decision_frame;
+	int junk_resurrection_frame;
+	int longest_junk_sequence;
+
+	ActionSequenceDetection* asd;
+
+	int current_junk_length;
+
+	vector<Action> trajectory;
 };
 
 #endif // __SEARCH_TREE_HPP__

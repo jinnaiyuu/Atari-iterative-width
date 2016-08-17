@@ -24,6 +24,7 @@
 #include "SearchTree.hpp"
 #include <fstream>
 
+
 class SearchAgent : public PlayerAgent {
     public:
 	SearchAgent(OSystem * _osystem, RomSettings * _settings, StellaEnvironment* _env, bool player_B = false);
@@ -38,6 +39,7 @@ class SearchAgent : public PlayerAgent {
 
         virtual Action agent_step();
 
+        void saveUsedAction(int frame_number, Action action);
 
 	protected:
         /* *********************************************************************
@@ -60,6 +62,7 @@ protected:
 	string search_method;
 	unsigned m_current_episode;
 	std::ofstream m_trace;
+
 };
 
 #endif // __SEARCH_AGENT_HPP__

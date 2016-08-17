@@ -17,16 +17,24 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 
 	int minus_inf = numeric_limits<int>::min();
 //	printf("minus_inf=%d\n", minus_inf);
-	m_ram_reward_table_true.resize(8 * RAM_SIZE);
-	m_ram_reward_table_false.resize(8 * RAM_SIZE);
+
+	if (m_novelty_boolean_representation) {
+		m_ram_reward_table_true.resize(8 * RAM_SIZE);
+		m_ram_reward_table_false.resize(8 * RAM_SIZE);
+		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+	} else {
+		m_ram_reward_table_byte.resize(256 * RAM_SIZE);
+		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+
+	}
+
 //	for (unsigned int i = 0; i < 8 * RAM_SIZE; ++i) {
 //		m_ram_reward_table_true[i] = minus_inf;
 //		m_ram_reward_table_false[i] = minus_inf;
 //	}
-	m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-	m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
 
-	// TODO: parameterize
+// TODO: parameterize
 //	ignore_duplicates = true;
 
 	m_expand_all_emulated_nodes = settings.getBool("expand_all_emulated_nodes",
@@ -37,8 +45,11 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 	}
 
 	m_priority_queue = settings.getString("priority_queue", false);
-	if (m_priority_queue.empty()) {
-		m_priority_queue == "reward";
+	if (m_priority_queue.empty() || m_priority_queue == "") {
+		m_priority_queue = "reward";
+	}
+	if (m_priority_queue != "reward" && m_priority_queue != "novelty") {
+		m_priority_queue = "reward";
 	}
 	printf("priority_queue %s\n", m_priority_queue.c_str());
 }
@@ -50,8 +61,9 @@ PIW1Search::~PIW1Search() {
 //	} else
 //		delete m_ram_novelty_table;
 
-	m_ram_reward_table_true.clear();
-	m_ram_reward_table_false.clear();
+//	m_ram_reward_table_true.clear();
+//	m_ram_reward_table_false.clear();
+//	m_ram_reward_table_byte.clear();
 }
 
 /* *********************************************************************
@@ -111,19 +123,19 @@ void PIW1Search::print_path(TreeNode * node, int a) {
 
 void PIW1Search::update_tree() {
 	expand_tree(p_root);
-	// for(unsigned byte = 0; byte < RAM_SIZE; byte++){
-	//     std::cout << "Byte: " << byte << std::endl;
-	//     int count = 0;
-	//     for( unsigned i = 0; i < 255; i++){
-	// 	if ( m_ram_novelty_table->isset( byte,i ) ){
-	// 	    count++;			
-	// 	    std::cout << "\t element: "<< i << std::endl;
-	// 	}
+// for(unsigned byte = 0; byte < RAM_SIZE; byte++){
+//     std::cout << "Byte: " << byte << std::endl;
+//     int count = 0;
+//     for( unsigned i = 0; i < 255; i++){
+// 	if ( m_ram_novelty_table->isset( byte,i ) ){
+// 	    count++;
+// 	    std::cout << "\t element: "<< i << std::endl;
+// 	}
 
-	//     }
-	//     std::cout << "\t num_elements " << count << std::endl;
-	// }
-	// std::exit(0);
+//     }
+//     std::cout << "\t num_elements " << count << std::endl;
+// }
+// std::exit(0);
 }
 
 void PIW1Search::update_novelty_table(const ALERAM& machine_state,
@@ -145,23 +157,39 @@ void PIW1Search::update_novelty_table(const ALERAM& machine_state,
 //	}
 	bool updated = false;
 
-	for (unsigned int i = 0; i < machine_state.size(); i++) {
-		unsigned char mask = 1;
-		byte_t byte = machine_state.get(i);
-		for (int j = 0; j < 8; j++) {
-			bool bit_is_set = (byte & (mask << j)) != 0;
-			if (bit_is_set) {
-				int old_reward = m_ram_reward_table_true[8 * i + j];
-				if (accumulated_reward > old_reward) {
-					m_ram_reward_table_true[8 * i + j] = accumulated_reward;
-					updated = true;
+	if (m_novelty_boolean_representation) {
+
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+			for (int j = 0; j < 8; j++) {
+				bool bit_is_set = (byte & (mask << j)) != 0;
+				if (bit_is_set) {
+					int old_reward = m_ram_reward_table_true[8 * i + j];
+					if (accumulated_reward > old_reward) {
+						m_ram_reward_table_true[8 * i + j] = accumulated_reward;
+						updated = true;
+					}
+				} else {
+					int old_reward = m_ram_reward_table_false[8 * i + j];
+					if (accumulated_reward > old_reward) {
+						m_ram_reward_table_false[8 * i + j] =
+								accumulated_reward;
+						updated = true;
+					}
 				}
-			} else {
-				int old_reward = m_ram_reward_table_false[8 * i + j];
-				if (accumulated_reward > old_reward) {
-					m_ram_reward_table_false[8 * i + j] = accumulated_reward;
-					updated = true;
-				}
+			}
+		}
+
+	} else {
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+
+			int old_reward = m_ram_reward_table_byte[256 * i + byte];
+			if (accumulated_reward > old_reward) {
+				m_ram_reward_table_byte[256 * i + byte] = accumulated_reward;
+				updated = true;
 			}
 		}
 	}
@@ -191,39 +219,52 @@ bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
 //			return true;
 //	return false;
 
-	for (unsigned int i = 0; i < machine_state.size(); i++) {
-		unsigned char mask = 1;
-		byte_t byte = machine_state.get(i);
-		for (int j = 0; j < 8; j++) {
-			bool bit_is_set = (byte & (mask << j)) != 0;
-			if (bit_is_set) {
+	if (m_novelty_boolean_representation) {
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+			for (int j = 0; j < 8; j++) {
+				bool bit_is_set = (byte & (mask << j)) != 0;
+				if (bit_is_set) {
 //				if (m_ram_reward_table_true[8 * i + j]
 //						> numeric_limits<int>::min()) {
 //					return true;
 //				}
 
-				if (accumulated_reward > m_ram_reward_table_true[8 * i + j]) {
+					if (accumulated_reward
+							> m_ram_reward_table_true[8 * i + j]) {
 //					printf("update: curr_reward= %d table_reward= %d\n",
 //							accumulated_reward,
 //							m_ram_reward_table_true[8 * i + j]);
-					return true;
-				}
-			} else {
+						return true;
+					}
+				} else {
 //				if (m_ram_reward_table_false[8 * i + j]
 //						> numeric_limits<int>::min()) {
 //					return true;
 //				}
 
-				if (accumulated_reward > m_ram_reward_table_false[8 * i + j]) {
+					if (accumulated_reward
+							> m_ram_reward_table_false[8 * i + j]) {
 //					printf("update: curr_reward= %d table_reward= %d\n",
 //							accumulated_reward,
 //							m_ram_reward_table_false[8 * i + j]);
-					return true;
+						return true;
+					}
 				}
+			}
+		}
+	} else {
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
+				return true;
 			}
 		}
 	}
 	return false;
+
 }
 
 // TODO: This should be called BEFORE we update the reward table.
@@ -231,19 +272,32 @@ int PIW1Search::check_novelty(const ALERAM& machine_state,
 		reward_t accumulated_reward) {
 	int novelty = 0;
 
-	for (unsigned int i = 0; i < machine_state.size(); i++) {
-		unsigned char mask = 1;
-		byte_t byte = machine_state.get(i);
-		for (int j = 0; j < 8; j++) {
-			bool bit_is_set = (byte & (mask << j)) != 0;
-			if (bit_is_set) {
-				if (accumulated_reward > m_ram_reward_table_true[8 * i + j]) {
-					++novelty;
+	if (m_novelty_boolean_representation) {
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+			for (int j = 0; j < 8; j++) {
+				bool bit_is_set = (byte & (mask << j)) != 0;
+				if (bit_is_set) {
+					if (accumulated_reward
+							> m_ram_reward_table_true[8 * i + j]) {
+						++novelty;
+					}
+				} else {
+					if (accumulated_reward
+							> m_ram_reward_table_false[8 * i + j]) {
+						++novelty;
+					}
 				}
-			} else {
-				if (accumulated_reward > m_ram_reward_table_false[8 * i + j]) {
-					++novelty;
-				}
+			}
+		}
+		return novelty;
+	} else {
+		for (unsigned int i = 0; i < machine_state.size(); i++) {
+			unsigned char mask = 1;
+			byte_t byte = machine_state.get(i);
+			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
+				++novelty;
 			}
 		}
 	}
@@ -443,7 +497,6 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 
 		pivots.pop_front();
 
-
 		// TODO: REFACTOR multiple priority queues.
 		if (m_priority_queue == "reward") {
 			while (!m_q_reward.empty()) {
@@ -517,8 +570,14 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 void PIW1Search::clear() {
 	SearchTree::clear();
 	int minus_inf = numeric_limits<int>::min();
-	m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-	m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+
+	if (m_novelty_boolean_representation) {
+
+		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+	} else {
+		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+	}
 
 	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
 			TreeNodeComparerReward> emptyr;
@@ -528,7 +587,7 @@ void PIW1Search::clear() {
 			TreeNodeComparerAdditiveNovelty> emptyn;
 	std::swap(m_q_novelty, emptyn);
 
-//	if (m_novelty_boolean_representation) {
+	//	if (m_novelty_boolean_representation) {
 //		m_ram_novelty_table_true->clear();
 //		m_ram_novelty_table_false->clear();
 //	} else
@@ -538,8 +597,13 @@ void PIW1Search::clear() {
 void PIW1Search::move_to_best_sub_branch() {
 	SearchTree::move_to_best_sub_branch();
 	int minus_inf = numeric_limits<int>::min();
-	m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-	m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+	if (m_novelty_boolean_representation) {
+
+		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+	} else {
+		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+	}
 
 	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
 			TreeNodeComparerReward> emptyr;

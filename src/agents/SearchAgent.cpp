@@ -92,6 +92,7 @@ SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 
 	Settings &settings = _osystem->settings();
 	sim_steps_per_node = settings.getInt("sim_steps_per_node", true);
+
 }
 
 SearchAgent::~SearchAgent() {
@@ -155,7 +156,11 @@ Action SearchAgent::act() {
 		search_tree->build(state);
 	}
 
+
 	m_curr_action = search_tree->get_best_action();
+
+	search_tree->getJunkActionSequence(frame_number); // TODO: messy
+	search_tree->saveUsedAction(frame_number, m_curr_action);
 
 	m_env->restoreState(state);
 
@@ -170,6 +175,7 @@ Action SearchAgent::act() {
 			m_trace);
 	search_tree->print_frame_data(frame_number, elapsed, m_curr_action,
 			std::cout);
+
 
 	return m_curr_action;
 }
