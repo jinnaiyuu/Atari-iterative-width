@@ -71,6 +71,8 @@ public:
 	int pruned() const {
 		return m_pruned_nodes;
 	}
+	int jasd_pruned() const { return m_jasd_pruned_nodes; }
+
 	virtual unsigned max_depth() {
 		for (size_t c = 0; c < p_root->v_children.size(); c++)
 			if (m_max_depth < p_root->v_children[c]->branch_depth)

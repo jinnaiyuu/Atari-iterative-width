@@ -40,6 +40,9 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 					|| settings.getInt("uct_monte_carlo_steps", false) != -1);
 
 	discount_factor = settings.getFloat("discount_factor", true);
+	depth_normalized_reward = settings.getBool("depth_normalized_reward",
+			false);
+
 	// Default: false
 	normalize_rewards = settings.getBool("normalize_rewards", false);
 	// Default: false
@@ -58,27 +61,37 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	if (action_sequence_detection) {
 		printf("RUNNING ACTION SEQUENCE DETECTION\n");
-		asd = new ActionSequenceDetection();
+		asd = new ActionSequenceDetection(settings);
 		junk_decision_frame = settings.getInt("junk_decision_frame", false);
 		junk_resurrection_frame = settings.getInt("junk_resurrection_frame",
 				false);
 		longest_junk_sequence = settings.getInt("longest_junk_sequence", false);
 
-		if (junk_decision_frame < 0) {
-			junk_decision_frame = 12 * 5; // 5 seconds in game
-		}
+		decision_frame_function = settings.getInt("decision_frame_function",
+				false);
 
 		if (junk_decision_frame < 0) {
+			junk_decision_frame = 12; // 5 seconds in game
+		}
+
+		if (junk_resurrection_frame < 0) {
 			junk_resurrection_frame = 20;
+		}
+
+		if (decision_frame_function < 0) {
+			decision_frame_function = 1;
 		}
 
 		if (longest_junk_sequence < 0) {
 			longest_junk_sequence = 2;
 		}
 
-		current_junk_length = 1;
+//		current_junk_length = 1;
 	}
 
+
+	printf("MinimalActionSet= %d\n",
+			m_rom_settings->getMinimalActionSet().size());
 }
 
 /* *********************************************************************
@@ -91,6 +104,7 @@ void SearchTree::clear(void) {
 	}
 	is_built = false;
 	m_max_depth = 0;
+
 }
 
 /* *********************************************************************
@@ -98,8 +112,7 @@ void SearchTree::clear(void) {
  ******************************************************************* */
 SearchTree::~SearchTree(void) {
 	clear();
-
-	if (action_sequence_detection > 0) {
+	if (action_sequence_detection) {
 		delete asd;
 	}
 }
@@ -111,9 +124,28 @@ Action SearchTree::get_best_action(void) {
 	assert(p_root != NULL);
 	int best_branch = p_root->best_branch;
 	TreeNode* best_child = p_root->v_children[best_branch];
-	assert(best_branch != -1);
 	vector<int> best_branches;
-	best_branches.push_back(best_branch);
+	assert(best_branch != -1);
+
+	if (depth_normalized_reward) {
+//		best_branch = -1;
+		reward_t best_reward = -1.0;
+		for (size_t c = 0; c < p_root->v_children.size(); c++) {
+			TreeNode* child = p_root->v_children[c];
+			double norm_divides = (1.0
+					- pow(discount_factor, child->branch_depth))
+					/ (1.0 - discount_factor);
+			reward_t r = child->branch_return / norm_divides;
+			if (r > best_reward) {
+				best_reward = r;
+				best_branch = c;
+			}
+		}
+		best_child = p_root->v_children[best_branch];
+		best_branches.push_back(best_branch);
+	} else {
+		best_branches.push_back(best_branch);
+	}
 
 	for (size_t c = 0; c < p_root->v_children.size(); c++) {
 		TreeNode* curr_child = p_root->v_children[c];
@@ -158,7 +190,8 @@ Action SearchTree::get_best_action(void) {
 	}
 
 	p_root->best_branch = best_branch;
-
+	printf("best_branch=%s\n",
+			action_to_string(p_root->available_actions[best_branch]).c_str());
 	return p_root->available_actions[best_branch];
 }
 
@@ -384,13 +417,26 @@ void SearchTree::print_frame_data(int frame_number, float elapsed,
 
 void SearchTree::getJunkActionSequence(int frame_number) {
 	if (action_sequence_detection) {
-		if (frame_number > 0 && (frame_number / 5) % junk_decision_frame == 0) {
-			if (longest_junk_sequence > current_junk_length) {
-				++current_junk_length;
-			}
-		}
+		int agent_frame = frame_number / 5;
+//		int decision_frame = junk_decision_frame
+//				* pow(current_junk_length, decision_frame_function);
 
-		asd->getJunkActionSequence(this, current_junk_length);
+//		assert(agent_frame <= decision_frame);
+		// TODO: The incrementing algorithm for junk length is not obvious.
+		// For now it's n*n*n.
+//		if (agent_frame == decision_frame) {
+//			++current_junk_length;
+//		}
+
+//		if (frame_number > 0 && (frame_number / 5) % junk_decision_frame == 0) {
+//			if (longest_junk_sequence >= current_junk_length) {
+//				++current_junk_length;
+//			}
+//		}
+
+//		if (longest_junk_sequence >= current_junk_length) {
+		asd->getJunkActionSequence(this, longest_junk_sequence);
+//		}
 
 	}
 }
@@ -423,5 +469,13 @@ std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,
 void SearchTree::saveUsedAction(int frame_number, Action action) {
 	if (action_sequence_detection) {
 		trajectory.push_back(action);
+	}
+}
+
+int SearchTree::getDetectedUsedActionsSize (){
+	if (action_sequence_detection) {
+		return asd->getDetectedUsedActionsSize();
+	} else {
+		return 0;
 	}
 }

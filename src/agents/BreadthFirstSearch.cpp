@@ -1,6 +1,7 @@
 #include "BreadthFirstSearch.hpp"
 #include "SearchAgent.hpp"
 #include <queue>
+#include "ActionSequenceDetection.hpp"
 
 /* *********************************************************************
    Constructor
@@ -71,6 +72,7 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 	m_generated_nodes = 0;
 
 	m_pruned_nodes = 0;
+	m_jasd_pruned_nodes = 0;
 
 	while(!q.empty()) {
 		// Pop a node to expand
@@ -88,6 +90,16 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 			curr_node->v_children.resize( num_actions );
 			curr_node->available_actions = available_actions;
 		}
+
+		vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+		if (action_sequence_detection) {
+			if (!trajectory.empty()) {
+				vector<Action> p = getPreviousActions(curr_node,
+						longest_junk_sequence - 1);
+				isUsefulAction = asd->getUsefulActions(p);
+			}
+		}
+
 		for (int a = 0; a < num_actions; a++) {
 			Action act = available_actions[a];
 	
@@ -95,6 +107,24 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 
 			// If re-expanding an internal node, don't creates new nodes
 			if (leaf_node) {
+
+				if (action_sequence_detection) {
+					if (curr_node != p_root) {
+						if (!isUsefulAction[act]) {
+							m_jasd_pruned_nodes++;
+							//					printf("Pruned %d\n", (int) a,
+							//							action_to_string((Action) a).c_str());
+							// TODO: generate dummy node
+							TreeNode * child;
+							child = new TreeNode(curr_node, curr_node->state, this,
+									act, 0);
+							curr_node->v_children[a] = child;
+							child->is_terminal = true;
+							continue;
+						}
+					}
+				}
+
 				m_generated_nodes++;
 				child = new TreeNode(curr_node,	
 						curr_node->state,
@@ -218,6 +248,7 @@ void	BreadthFirstSearch::print_frame_data( int frame_number, float elapsed, Acti
 	output << ",expanded=" << expanded_nodes();
 	output << ",generated=" << generated_nodes();
 	output << ",pruned=" << pruned();
+	output << ",jasd_pruned=" << jasd_pruned();
 	output << ",depth_tree=" << max_depth();
 	output << ",tree_size=" <<  num_nodes(); 
 	output << ",best_action=" << action_to_string( curr_action );

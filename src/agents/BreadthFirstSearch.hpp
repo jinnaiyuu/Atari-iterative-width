@@ -22,6 +22,7 @@ public:
 	int expanded() const { return m_expanded_nodes; }
 	int generated() const { return m_generated_nodes; }
 	int pruned() const { return m_pruned_nodes; }
+	int jasd_pruned() const { return m_jasd_pruned_nodes; }
 
 	virtual	void print_frame_data( int frame_number, float elapsed, Action curr_action, std::ostream& output );
 protected:	

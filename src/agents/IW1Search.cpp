@@ -19,8 +19,11 @@ IW1Search::IW1Search(RomSettings *rom_settings, Settings &settings,
 	if (m_novelty_boolean_representation) {
 		m_ram_novelty_table_true = new aptk::Bit_Matrix(RAM_SIZE, 8);
 		m_ram_novelty_table_false = new aptk::Bit_Matrix(RAM_SIZE, 8);
-	} else
+	} else {
 		m_ram_novelty_table = new aptk::Bit_Matrix(RAM_SIZE, 256);
+	}
+
+	m_pruned_nodes = 0;
 }
 
 IW1Search::~IW1Search() {
@@ -160,14 +163,12 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 	vector<bool> isUsefulAction(PLAYER_A_MAX, true);
 	if (action_sequence_detection) {
 		if (!trajectory.empty()) {
-			vector<Action> p;
-			// TODO: p length = current_junk_length - 1
-//			p.resize(current_junk_length - 1);
-			getPreviousActions(curr_node, current_junk_length - 1);
-			if (current_junk_length - 1 > 0) {
+			vector<Action> p = getPreviousActions(curr_node,
+					longest_junk_sequence - 1);
+//			if (longest_junk_sequence > 0) {
 //				p.push_back(curr_node->act);
 //				p.assign(trajectory.end() - 1, trajectory.end());
-				isUsefulAction = asd->getUsefulActions(p);
+			isUsefulAction = asd->getUsefulActions(p);
 //				for (int i = 0; i < PLAYER_A_MAX; ++i) {
 //					if (isUsefulAction[i]) {
 //						printf("o");
@@ -176,33 +177,34 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 //					}
 //				}
 //				printf("\n");
-			}
+//			}
 		}
 	}
 
 	for (int a = 0; a < num_actions; a++) {
 		Action act = curr_node->available_actions[a];
 
-		if (action_sequence_detection) {
-			if (curr_node != p_root) {
-				if (!isUsefulAction[act]) {
-//					printf("Pruned %d\n", (int) a,
-//							action_to_string((Action) a).c_str());
-					// TODO: generate dummy node
-					TreeNode * child;
-					child = new TreeNode(curr_node, curr_node->state, this, act,
-							0);
-					curr_node->v_children[a] = child;
-					child->is_terminal = true;
-					continue;
-				}
-			}
-		}
-
 		TreeNode * child;
 
 		// If re-expanding an internal node, don't creates new nodes
 		if (leaf_node) {
+			if (action_sequence_detection) {
+				if (curr_node != p_root) {
+					if (!isUsefulAction[act]) {
+						m_jasd_pruned_nodes++;
+						//					printf("Pruned %d\n", (int) a,
+						//							action_to_string((Action) a).c_str());
+						// TODO: generate dummy node
+						TreeNode * child;
+						child = new TreeNode(curr_node, curr_node->state, this,
+								act, 0);
+						curr_node->v_children[a] = child;
+						child->is_terminal = true;
+						continue;
+					}
+				}
+			}
+
 			m_generated_nodes++;
 			child = new TreeNode(curr_node, curr_node->state, this, act,
 					sim_steps_per_node);
@@ -288,6 +290,7 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 	m_generated_nodes = 0;
 
 	m_pruned_nodes = 0;
+	m_jasd_pruned_nodes = 0;
 
 	do {
 
@@ -411,7 +414,31 @@ void IW1Search::update_branch_return(TreeNode* node) {
 	}
 
 	node->branch_return = node->node_reward + best_return * discount_factor;
-	//node->branch_return = node->node_reward + avg * discount_factor; 
+
+	// Normalize
+//	if (!depth_normalized_reward) {
+//	node->branch_return = node->node_reward + best_return * discount_factor;
+//	} else {
+//		// a_n   := branch_return of node with depth n
+//		// r_n   := node reward of node with depth n
+//		// alpha := discount_factor
+//
+//		// We normalizes the reward with depth
+//		// a_n = \frac{r_n + \alpha a_{n-1} t_{n-1}}{t_n}
+//		// t_n = 1 + \alpha + \alpha^2 + ... + \alpha^n
+//
+//		int node_height = node->branch_depth - node->m_depth;
+//		double norm_times = (1.0 - pow(discount_factor, node_height))
+//				/ (1.0 - discount_factor);
+//		double norm_divides = (1.0 - pow(discount_factor, node_height + 1))
+//				/ (1.0 - discount_factor);
+//
+//		node->branch_return = ((double) node->node_reward
+//				+ norm_times * (double) discount_factor * (double) best_return)
+//				/ norm_divides;
+//	}
+
+	//node->branch_return = node->node_reward + avg * discount_factor;
 
 	node->best_branch = best_branch;
 }
@@ -437,6 +464,7 @@ void IW1Search::print_frame_data(int frame_number, float elapsed,
 	output << ",expanded=" << expanded_nodes();
 	output << ",generated=" << generated_nodes();
 	output << ",pruned=" << pruned();
+	output << ",jasd_pruned=" << jasd_pruned();
 	output << ",depth_tree=" << max_depth();
 	output << ",tree_size=" << num_nodes();
 	output << ",best_action=" << action_to_string(curr_action);

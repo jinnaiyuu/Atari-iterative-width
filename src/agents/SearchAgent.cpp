@@ -96,6 +96,7 @@ SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 }
 
 SearchAgent::~SearchAgent() {
+
 	m_trace.close();
 }
 
@@ -187,6 +188,8 @@ void SearchAgent::episode_end(void) {
 	PlayerAgent::episode_end();
 	// Our search-tree is useless now. Clear it
 	search_tree->clear();
+
+	search_tree->getDetectedUsedActionsSize();
 }
 
 Action SearchAgent::episode_start(void) {

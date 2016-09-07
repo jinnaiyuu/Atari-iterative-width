@@ -1,6 +1,7 @@
 #include "PIW1Search.hpp"
 #include "SearchAgent.hpp"
 #include <list>
+#include "ActionSequenceDetection.hpp"
 
 PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -328,13 +329,39 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 					curr_node->available_actions.end());
 
 	}
+
+	vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+	if (action_sequence_detection) {
+		if (!trajectory.empty()) {
+			vector<Action> p = getPreviousActions(curr_node,
+					longest_junk_sequence - 1);
+//			if (longest_junk_sequence - 1 > 0) {
+			isUsefulAction = asd->getUsefulActions(p);
+//			}
+		}
+	}
+
 	for (int a = 0; a < num_actions; a++) {
 		Action act = curr_node->available_actions[a];
+
 
 		TreeNode * child;
 
 		// If re-expanding an internal node, don't creates new nodes
 		if (leaf_node) {
+			if (action_sequence_detection) {
+				if (curr_node != p_root) {
+					if (!isUsefulAction[act]) {
+						m_jasd_pruned_nodes++;
+						TreeNode * child = new TreeNode(curr_node, curr_node->state,
+								this, act, 0);
+						curr_node->v_children[a] = child;
+						child->is_terminal = true;
+						continue;
+					}
+				}
+			}
+
 			m_generated_nodes++;
 			child = new TreeNode(curr_node, curr_node->state, this, act,
 					sim_steps_per_node);
@@ -343,11 +370,11 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 			if (check_novelty_1(child->state.getRAM(),
 					child->accumulated_reward)) {
 
-				child->additive_novelty = check_novelty(child->state.getRAM(),
-						child->accumulated_reward);
+//				child->additive_novelty = check_novelty(child->state.getRAM(),
+//						child->accumulated_reward);
 
-				child->fn = calc_fn(child->state.getRAM(),
-						child->accumulated_reward); // TODO: duplicated calculation
+//				child->fn = calc_fn(child->state.getRAM(),
+//						child->accumulated_reward); // TODO: duplicated calculation
 
 //				printf("state: novelty= %d reward= %d fn=%d\n",
 //						child->additive_novelty, child->accumulated_reward,
@@ -383,12 +410,12 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 					if (check_novelty_1(child->state.getRAM(),
 							child->accumulated_reward)) {
 
-						child->additive_novelty = check_novelty(
-								child->state.getRAM(),
-								child->accumulated_reward);
-
-						child->fn = calc_fn(child->state.getRAM(),
-								child->accumulated_reward); // TODO: duplicated calculation
+//						child->additive_novelty = check_novelty(
+//								child->state.getRAM(),
+//								child->accumulated_reward);
+//
+//						child->fn = calc_fn(child->state.getRAM(),
+//								child->accumulated_reward); // TODO: duplicated calculation
 
 //						printf("state: novelty= %d reward= %d fn=%d\n",
 //								child->additive_novelty,
@@ -481,6 +508,7 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 	m_reused_nodes = 0;
 
 	m_pruned_nodes = 0;
+	m_jasd_pruned_nodes = 0;
 
 	do {
 
@@ -671,8 +699,21 @@ void PIW1Search::update_branch_return(TreeNode* node) {
 		}
 	}
 
-	node->branch_return = node->node_reward + best_return * discount_factor;
 //node->branch_return = node->node_reward + avg * discount_factor;
+	// Normalize
+//	if (!depth_normalized_reward) {
+	node->branch_return = node->node_reward + best_return * discount_factor;
+//	} else {
+//		int node_height = node->branch_depth - node->m_depth;
+//		double norm_times = (1.0 - pow(discount_factor, node_height))
+//				/ (1.0 - discount_factor);
+//		double norm_divides = (1.0 - pow(discount_factor, node_height + 1))
+//				/ (1.0 - discount_factor);
+//
+//		node->branch_return = ((double) node->node_reward
+//				+ norm_times * (double) discount_factor * (double) best_return)
+//				/ norm_divides;
+//	}
 
 	node->best_branch = best_branch;
 }
@@ -727,6 +768,7 @@ void PIW1Search::print_frame_data(int frame_number, float elapsed,
 	output << ",expanded=" << expanded_nodes();
 	output << ",generated=" << generated_nodes();
 	output << ",pruned=" << pruned();
+	output << ",jasd_pruned=" << jasd_pruned();
 	output << ",depth_tree=" << max_depth();
 	output << ",tree_size=" << num_nodes();
 	output << ",best_action=" << action_to_string(curr_action);
