@@ -27,6 +27,7 @@
 
 #include "UniformCostSearch.hpp"
 #include "BestFirstSearch.hpp"
+#include "PercolationSearch.hpp"
 
 #include "UCTSearchTree.hpp"
 #include "time.hxx"
@@ -76,6 +77,11 @@ SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 
 		search_tree->set_novelty_pruning();
 		m_trace.open("bfs.search-agent.trace");
+	} else if (search_method == "bips") {
+		search_tree = new PercolationSearch(_settings, _osystem->settings(),
+				available_actions, _env);
+
+		m_trace.open("bips.search-agent.trace");
 
 	} else if (search_method == "uct") {
 		search_tree = new UCTSearchTree(_settings, _osystem->settings(),
@@ -135,6 +141,7 @@ Action SearchAgent::act() {
 
 	float t0 = aptk::time_used();
 
+	m_env->getScreen();
 	state = m_env->cloneState();
 
 	if (search_tree->is_built) {

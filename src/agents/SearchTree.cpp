@@ -89,6 +89,7 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 //		current_junk_length = 1;
 	}
 
+	image_based = settings.getBool("image_based", false);
 
 	printf("MinimalActionSet= %d\n",
 			m_rom_settings->getMinimalActionSet().size());
@@ -236,7 +237,7 @@ bool SearchTree::test_duplicate(TreeNode *node) {
 		return false;
 	else {
 		TreeNode * parent = node->p_parent;
-
+		ALEScreen nodeImg = node->state.getScreen();
 		// Compare each valid sibling with this one
 		for (size_t c = 0; c < parent->v_children.size(); c++) {
 			TreeNode * sibling = parent->v_children[c];
@@ -245,10 +246,20 @@ bool SearchTree::test_duplicate(TreeNode *node) {
 					|| !sibling->is_initialized())
 				continue;
 
-			if (sibling->state.equals(node->state)) {
+			if (image_based) {
+				// YJ: Image-based duplicate detection.
+				//     It is more natural to use image for realistic situation.
+				if (sibling->state.getScreen().equals(nodeImg)) {
+					node->duplicate = true;
+					return true;
+				}
+			} else {
 
-				node->duplicate = true;
-				return true;
+				if (sibling->state.equals(node->state)) {
+
+					node->duplicate = true;
+					return true;
+				}
 			}
 		}
 
@@ -472,7 +483,7 @@ void SearchTree::saveUsedAction(int frame_number, Action action) {
 	}
 }
 
-int SearchTree::getDetectedUsedActionsSize (){
+int SearchTree::getDetectedUsedActionsSize() {
 	if (action_sequence_detection) {
 		return asd->getDetectedUsedActionsSize();
 	} else {

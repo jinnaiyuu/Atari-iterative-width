@@ -51,8 +51,10 @@ protected:
 
 	void set_terminal_root(TreeNode* node);
 
-	void update_novelty_table(const ALERAM &machine_state);
-	bool check_novelty_1(const ALERAM& machine_state);
+	void update_novelty_table(ALEState &machine_state);
+	bool check_novelty_1(ALEState &machine_state);
+
+	const ALEScreen get_screen(ALEState &machine_state);
 
 	virtual void clear();
 	virtual void move_to_best_sub_branch();
@@ -61,6 +63,8 @@ protected:
 	aptk::Bit_Matrix* m_ram_novelty_table;
 	aptk::Bit_Matrix* m_ram_novelty_table_true;
 	aptk::Bit_Matrix* m_ram_novelty_table_false;
+	aptk::Bit_Matrix* m_image_novelty_table;
+
 	unsigned m_pruned_nodes;
 	bool m_stop_on_first_reward;
 	unsigned m_reward_horizon;

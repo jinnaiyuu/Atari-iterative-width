@@ -149,8 +149,11 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 
 			// Don't expand duplicate nodes, or terminal nodes
 			if (!child->is_terminal) {
-				if (! (ignore_duplicates && test_duplicate(child)) )
+				if (! (ignore_duplicates && test_duplicate(child)) ) {
 					q.push(child);
+				} else {
+					m_pruned_nodes++;
+				}
 			}
 		}
 	

@@ -1,10 +1,10 @@
-#include "IW1Search.hpp"
+#include "PercolationSearch.hpp"
 #include "SearchAgent.hpp"
 #include <list>
 #include "ActionSequenceDetection.hpp"
 
-IW1Search::IW1Search(RomSettings *rom_settings, Settings &settings,
-		ActionVect &actions, StellaEnvironment* _env) :
+PercolationSearch::PercolationSearch(RomSettings *rom_settings,
+		Settings &settings, ActionVect &actions, StellaEnvironment* _env) :
 		SearchTree(rom_settings, settings, actions, _env) {
 
 	m_stop_on_first_reward = settings.getBool("iw1_stop_on_first_reward", true);
@@ -16,46 +16,35 @@ IW1Search::IW1Search(RomSettings *rom_settings, Settings &settings,
 
 	m_reward_horizon = (val < 0 ? std::numeric_limits<unsigned>::max() : val);
 
-	if (!image_based) {
-		if (m_novelty_boolean_representation) {
-			m_ram_novelty_table_true = new aptk::Bit_Matrix(RAM_SIZE, 8);
-			m_ram_novelty_table_false = new aptk::Bit_Matrix(RAM_SIZE, 8);
-		} else {
-			m_ram_novelty_table = new aptk::Bit_Matrix(RAM_SIZE, 256);
-		}
-	} else {
-		int image_size = _env->getScreen().width() * _env->getScreen().height();
-//		printf("image_size = %d\n", image_size);
-		m_image_novelty_table = new aptk::Bit_Matrix(image_size,
-				256 * sizeof(unsigned char));
+	int minus_inf = numeric_limits<int>::min();
+
+// TODO: parameterize
+//	ignore_duplicates = true;
+
+	m_expand_all_emulated_nodes = settings.getBool("expand_all_emulated_nodes",
+			false);
+
+	if (m_expand_all_emulated_nodes) {
+		printf("Expands all previously emulated nodes\n");
 	}
 
 	m_pruned_nodes = 0;
 }
 
-IW1Search::~IW1Search() {
-	if (!image_based) {
-		if (m_novelty_boolean_representation) {
-			delete m_ram_novelty_table_true;
-			delete m_ram_novelty_table_false;
-		} else
-			delete m_ram_novelty_table;
-	} else {
-		delete m_image_novelty_table;
-	}
+PercolationSearch::~PercolationSearch() {
 }
 
 /* *********************************************************************
  Builds a new tree
  ******************************************************************* */
-void IW1Search::build(ALEState & state) {
+void PercolationSearch::build(ALEState & state) {
 	assert(p_root == NULL);
 	p_root = new TreeNode(NULL, state, NULL, UNDEFINED, 0);
 	update_tree();
 	is_built = true;
 }
 
-void IW1Search::print_path(TreeNode * node, int a) {
+void PercolationSearch::print_path(TreeNode * node, int a) {
 	cerr << "Path, return " << node->v_children[a]->branch_return << endl;
 
 	while (!node->is_leaf()) {
@@ -71,134 +60,24 @@ void IW1Search::print_path(TreeNode * node, int a) {
 	}
 }
 
-// void IW1Search::initialize_tree(TreeNode* node){
-// 	do {
-// 		Action act =  Action::PLAYER_A_NOOP
-// 		m_generated_nodes++;
-
-// 		TreeNode* child = new TreeNode(	curr_node,	
-// 					curr_node->state,
-// 					this,
-// 					act,
-// 					sim_steps_per_node); 
-
-// 		if ( check_novelty_1( child->state.getRAM() ) ) {
-// 			update_novelty_table( child->state.getRAM() );
-
-// 		}
-// 		else{
-// 			curr_node->v_children[a] = child;
-// 			child->is_terminal = true;
-// 			m_pruned_nodes++;
-// 			break;
-// 		}
-
-// 		num_simulated_steps += child->num_simulated_steps;					
-// 		node->v_children[a] = child;
-
-// 		node = child;
-// 	}while( node->depth() < m_max_depth)
-// }
-
-void IW1Search::update_tree() {
+void PercolationSearch::update_tree() {
 	expand_tree(p_root);
-	// for(unsigned byte = 0; byte < RAM_SIZE; byte++){
-	//     std::cout << "Byte: " << byte << std::endl;
-	//     int count = 0;
-	//     for( unsigned i = 0; i < 255; i++){
-	// 	if ( m_ram_novelty_table->isset( byte,i ) ){
-	// 	    count++;			
-	// 	    std::cout << "\t element: "<< i << std::endl;
-	// 	}
 
-	//     }
-	//     std::cout << "\t num_elements " << count << std::endl;
-	// }
-	// std::exit(0);
 }
 
-void IW1Search::update_novelty_table(ALEState& machine_state) {
-	if (!image_based) {
-		const ALERAM ram_state = machine_state.getRAM();
-		for (size_t i = 0; i < ram_state.size(); i++)
-			if (m_novelty_boolean_representation) {
-				unsigned char mask = 1;
-				byte_t byte = ram_state.get(i);
-				for (int j = 0; j < 8; j++) {
-					bool bit_is_set = (byte & (mask << j)) != 0;
-					if (bit_is_set)
-						m_ram_novelty_table_true->set(i, j);
-					else
-						m_ram_novelty_table_false->set(i, j);
-				}
-			} else
-				m_ram_novelty_table->set(i, ram_state.get(i));
-	} else {
-//		assert(machine_state.);
-
-		assert(get_screen(machine_state).getArray());
-		assert(get_screen(machine_state).arraySize() != 0);
-		const ALEScreen image = get_screen(machine_state);
-		int m_column = image.width();
-		printf("image_size=%d\n", image.arraySize());
-		for (size_t i = 0; i < image.arraySize(); ++i) {
-			m_image_novelty_table->set(i,
-					image.get(i / m_column, i % m_column));
-		}
-	}
+int PercolationSearch::calc_fn(const ALERAM& machine_state,
+		reward_t accumulated_reward) {
+	return random();
 }
 
-bool IW1Search::check_novelty_1(ALEState& machine_state) {
-	if (!image_based) {
-		ALERAM ram_state = machine_state.getRAM();
-		for (size_t i = 0; i < ram_state.size(); i++)
-			if (m_novelty_boolean_representation) {
-				unsigned char mask = 1;
-				byte_t byte = ram_state.get(i);
-				for (int j = 0; j < 8; j++) {
-					bool bit_is_set = (byte & (mask << j)) != 0;
-					if (bit_is_set) {
-						if (!m_ram_novelty_table_true->isset(i, j))
-							return true;
-					} else {
-						if (!m_ram_novelty_table_false->isset(i, j))
-							return true;
-
-					}
-				}
-			} else if (!m_ram_novelty_table->isset(i, ram_state.get(i)))
-				return true;
-		return false;
-	} else {
-		const ALEScreen image = get_screen(machine_state);
-		int m_column = image.width();
-		printf("image_size=%d\n", image.arraySize());
-		for (size_t i = 0; i < image.arraySize(); ++i) {
-			if (m_image_novelty_table->isset(i,
-					image.get(i / m_column, i % m_column))) {
-				return true;
-			}
-		}
-		return false;
-	}
-}
-
-const ALEScreen IW1Search::get_screen(ALEState &machine_state) {
-	ALEState buffer = m_env->cloneState();
-	m_env->restoreState(machine_state);
-	const ALEScreen screen = m_env->buildAndGetScreen();
-	m_env->restoreState(buffer);
-	return screen;
-}
-
-int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
+int PercolationSearch::expand_node(TreeNode* curr_node) {
 	int num_simulated_steps = 0;
 	int num_actions = available_actions.size();
 	bool leaf_node = (curr_node->v_children.empty());
 	static int max_nodes_per_frame = max_sim_steps_per_frame
 			/ sim_steps_per_node;
 	m_expanded_nodes++;
-	// Expand all of its children (simulates the result)
+// Expand all of its children (simulates the result)
 	if (leaf_node) {
 		curr_node->v_children.resize(num_actions);
 		curr_node->available_actions = available_actions;
@@ -213,18 +92,8 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 		if (!trajectory.empty()) {
 			vector<Action> p = getPreviousActions(curr_node,
 					longest_junk_sequence - 1);
-//			if (longest_junk_sequence > 0) {
-//				p.push_back(curr_node->act);
-//				p.assign(trajectory.end() - 1, trajectory.end());
+//			if (longest_junk_sequence - 1 > 0) {
 			isUsefulAction = asd->getUsefulActions(p);
-//				for (int i = 0; i < PLAYER_A_MAX; ++i) {
-//					if (isUsefulAction[i]) {
-//						printf("o");
-//					} else {
-//						printf("x");
-//					}
-//				}
-//				printf("\n");
 //			}
 		}
 	}
@@ -240,12 +109,8 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 				if (curr_node != p_root) {
 					if (!isUsefulAction[act]) {
 						m_jasd_pruned_nodes++;
-						//					printf("Pruned %d\n", (int) a,
-						//							action_to_string((Action) a).c_str());
-						// TODO: generate dummy node
-						TreeNode * child;
-						child = new TreeNode(curr_node, curr_node->state, this,
-								act, 0);
+						TreeNode * child = new TreeNode(curr_node,
+								curr_node->state, this, act, 0);
 						curr_node->v_children[a] = child;
 						child->is_terminal = true;
 						continue;
@@ -257,34 +122,37 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 			child = new TreeNode(curr_node, curr_node->state, this, act,
 					sim_steps_per_node);
 
-			if (check_novelty_1(child->state)) {
-				update_novelty_table(child->state);
+//				printf("pruned state\n");
+			curr_node->v_children[a] = child;
+			child->is_terminal = true;
+			m_pruned_nodes++;
 
-			} else {
-				curr_node->v_children[a] = child;
-				child->is_terminal = true;
-				m_pruned_nodes++;
-				//continue;				
-			}
 			if (child->depth() > m_max_depth)
 				m_max_depth = child->depth();
 			num_simulated_steps += child->num_simulated_steps;
 
-			curr_node->v_children[a] = child;
 		} else {
+			m_reused_nodes++;
+
 			child = curr_node->v_children[a];
+
+			// TODO: Nodes which do not require emulator can be explored more freely
+			// because they do not require any additional resources to expand.
 
 			// This recreates the novelty table (which gets resetted every time
 			// we change the root of the search tree)
 			if (m_novelty_pruning) {
 				if (child->is_terminal) {
-					if (check_novelty_1(child->state)) {
-						update_novelty_table(child->state);
+
+					// Expanding emulated nodes require minimal search effort.
+					// May worth expanding without strict pruning.
+					if (m_expand_all_emulated_nodes) {
 						child->is_terminal = false;
 					} else {
 						child->is_terminal = true;
-						m_pruned_nodes++;
 					}
+					m_pruned_nodes++;
+
 				}
 			}
 			child->updateTreeNode();
@@ -300,11 +168,15 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 
 		// Don't expand duplicate nodes, or terminal nodes
 		if (!child->is_terminal) {
-			if (!(ignore_duplicates && test_duplicate(child)))
-				if (child->num_nodes_reusable < max_nodes_per_frame)
-					q.push(child);
+			if (!(ignore_duplicates && test_duplicate_reward(child)))
+				if (child->num_nodes_reusable < max_nodes_per_frame) {
+					m_q_percolation.push(child);
+				}
+
 		}
+
 	}
+//	printf("reused= %d\n", m_reused_nodes);
 	return num_simulated_steps;
 }
 
@@ -313,7 +185,7 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
  is reached
 
  ******************************************************************* */
-void IW1Search::expand_tree(TreeNode* start_node) {
+void PercolationSearch::expand_tree(TreeNode* start_node) {
 
 	if (!start_node->v_children.empty()) {
 		start_node->updateTreeNode();
@@ -325,17 +197,17 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 		}
 	}
 
-	queue<TreeNode*> q;
 	std::list<TreeNode*> pivots;
 
-	//q.push(start_node);
+//q.push(start_node);
 	pivots.push_back(start_node);
 
-	update_novelty_table(start_node->state);
 	int num_simulated_steps = 0;
 
 	m_expanded_nodes = 0;
 	m_generated_nodes = 0;
+
+	m_reused_nodes = 0;
 
 	m_pruned_nodes = 0;
 	m_jasd_pruned_nodes = 0;
@@ -346,7 +218,7 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 		std::cout << "First pivot reward: " << pivots.front()->node_reward
 				<< std::endl;
 		pivots.front()->m_depth = 0;
-		int steps = expand_node(pivots.front(), q);
+		int steps = expand_node(pivots.front());
 		num_simulated_steps += steps;
 
 		if (num_simulated_steps >= max_sim_steps_per_frame) {
@@ -355,10 +227,10 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 
 		pivots.pop_front();
 
-		while (!q.empty()) {
+		while (!m_q_percolation.empty()) {
 			// Pop a node to expand
-			TreeNode* curr_node = q.front();
-			q.pop();
+			TreeNode* curr_node = m_q_percolation.top();
+			m_q_percolation.pop();
 
 			if (curr_node->depth() > m_reward_horizon - 1)
 				continue;
@@ -366,7 +238,7 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 				pivots.push_back(curr_node);
 				continue;
 			}
-			steps = expand_node(curr_node, q);
+			steps = expand_node(curr_node);
 			num_simulated_steps += steps;
 			// Stop once we have simulated a maximum number of steps
 			if (num_simulated_steps >= max_sim_steps_per_frame) {
@@ -377,10 +249,10 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 		std::cout << "\tExpanded so far: " << m_expanded_nodes << std::endl;
 		std::cout << "\tPruned so far: " << m_pruned_nodes << std::endl;
 		std::cout << "\tGenerated so far: " << m_generated_nodes << std::endl;
-//		std::cout << "\tSimulated steps: " << num_simulated_steps
 
-		if (q.empty())
+		if (m_q_percolation.empty())
 			std::cout << "Search Space Exhausted!" << std::endl;
+
 		// Stop once we have simulated a maximum number of steps
 		if (num_simulated_steps >= max_sim_steps_per_frame) {
 			break;
@@ -391,39 +263,26 @@ void IW1Search::expand_tree(TreeNode* start_node) {
 	update_branch_return(start_node);
 }
 
-void IW1Search::clear() {
+void PercolationSearch::clear() {
 	SearchTree::clear();
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>, TreeNodePercolation> emptyn;
+	std::swap(m_q_percolation, emptyn);
 
-	if (!image_based) {
-		if (m_novelty_boolean_representation) {
-			m_ram_novelty_table_true->clear();
-			m_ram_novelty_table_false->clear();
-		} else
-			m_ram_novelty_table->clear();
-	} else {
-		m_image_novelty_table->clear();
-	}
 }
 
-void IW1Search::move_to_best_sub_branch() {
+void PercolationSearch::move_to_best_sub_branch() {
 	SearchTree::move_to_best_sub_branch();
-	if (!image_based) {
-		if (m_novelty_boolean_representation) {
-			m_ram_novelty_table_true->clear();
-			m_ram_novelty_table_false->clear();
-		} else
-			m_ram_novelty_table->clear();
-	} else {
-		m_image_novelty_table->clear();
-	}
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>, TreeNodePercolation> emptyn;
+	std::swap(m_q_percolation, emptyn);
+
 }
 
 /* *********************************************************************
  Updates the branch reward for the given node
  which equals to: node_reward + max(children.branch_return)
  ******************************************************************* */
-void IW1Search::update_branch_return(TreeNode* node) {
-	// Base case (leaf node): the return is the immediate reward
+void PercolationSearch::update_branch_return(TreeNode* node) {
+// Base case (leaf node): the return is the immediate reward
 	if (node->v_children.empty()) {
 		node->branch_return = node->node_reward;
 		node->best_branch = -1;
@@ -431,7 +290,7 @@ void IW1Search::update_branch_return(TreeNode* node) {
 		return;
 	}
 
-	// First, we have to make sure that all the children are updated
+// First, we have to make sure that all the children are updated
 	for (unsigned int c = 0; c < node->v_children.size(); c++) {
 		TreeNode* curr_child = node->v_children[c];
 
@@ -441,12 +300,12 @@ void IW1Search::update_branch_return(TreeNode* node) {
 		update_branch_return(curr_child);
 	}
 
-	// Now that all the children are updated, we can update the branch-reward
+// Now that all the children are updated, we can update the branch-reward
 	float best_return = -1;
 	int best_branch = -1;
 	return_t avg = 0;
 
-	// Terminal nodes encur no reward beyond immediate
+// Terminal nodes encur no reward beyond immediate
 	if (node->is_terminal) {
 		node->branch_depth = node->m_depth;
 		best_return = node->node_reward;
@@ -468,20 +327,11 @@ void IW1Search::update_branch_return(TreeNode* node) {
 		}
 	}
 
-	node->branch_return = node->node_reward + best_return * discount_factor;
-
+//node->branch_return = node->node_reward + avg * discount_factor;
 	// Normalize
 //	if (!depth_normalized_reward) {
-//	node->branch_return = node->node_reward + best_return * discount_factor;
+	node->branch_return = node->node_reward + best_return * discount_factor;
 //	} else {
-//		// a_n   := branch_return of node with depth n
-//		// r_n   := node reward of node with depth n
-//		// alpha := discount_factor
-//
-//		// We normalizes the reward with depth
-//		// a_n = \frac{r_n + \alpha a_{n-1} t_{n-1}}{t_n}
-//		// t_n = 1 + \alpha + \alpha^2 + ... + \alpha^n
-//
 //		int node_height = node->branch_depth - node->m_depth;
 //		double norm_times = (1.0 - pow(discount_factor, node_height))
 //				/ (1.0 - discount_factor);
@@ -493,12 +343,10 @@ void IW1Search::update_branch_return(TreeNode* node) {
 //				/ norm_divides;
 //	}
 
-	//node->branch_return = node->node_reward + avg * discount_factor;
-
 	node->best_branch = best_branch;
 }
 
-void IW1Search::set_terminal_root(TreeNode * node) {
+void PercolationSearch::set_terminal_root(TreeNode * node) {
 	node->branch_return = node->node_reward;
 
 	if (node->v_children.empty()) {
@@ -509,11 +357,40 @@ void IW1Search::set_terminal_root(TreeNode * node) {
 		node->v_children.push_back(new_child);
 	}
 
-	// Now we have at least one child, set the 'best branch' to the first action
+// Now we have at least one child, set the 'best branch' to the first action
 	node->best_branch = 0;
 }
 
-void IW1Search::print_frame_data(int frame_number, float elapsed,
+bool PercolationSearch::test_duplicate_reward(TreeNode * node) {
+	if (node->p_parent == NULL)
+		return false;
+	else {
+		TreeNode * parent = node->p_parent;
+
+		// TODO: Inefficient duplicate detection: Currently implemented by Full mesh.
+		// Compare each valid sibling with this one
+		for (size_t c = 0; c < parent->v_children.size(); c++) {
+			TreeNode * sibling = parent->v_children[c];
+			// Ignore duplicates, this node and uninitialized nodes
+			if (sibling->is_duplicate() || sibling == node
+					|| !sibling->is_initialized())
+				continue;
+
+			if (sibling->state.equals(node->state)
+					&& sibling->accumulated_reward > node->accumulated_reward) {
+
+				node->duplicate = true;
+				return true;
+			}
+		}
+
+		// None of the siblings match, unique node
+		node->duplicate = false;
+		return false;
+	}
+}
+
+void PercolationSearch::print_frame_data(int frame_number, float elapsed,
 		Action curr_action, std::ostream& output) {
 	output << "frame=" << frame_number;
 	output << ",expanded=" << expanded_nodes();
@@ -525,7 +402,7 @@ void IW1Search::print_frame_data(int frame_number, float elapsed,
 	output << ",best_action=" << action_to_string(curr_action);
 	output << ",branch_reward=" << get_root_value();
 	output << ",elapsed=" << elapsed;
-	output << ",total_simulation_steps=" << m_total_simulation_steps;
+	output << ",total_simulation_steps=" << total_simulation_steps;
 	output << ",emulation_time=" << m_emulation_time;
 	m_rom_settings->print(output);
 	output << std::endl;

@@ -10,6 +10,7 @@
 
 #include "Settings.hxx"
 #include "Constants.h"
+#include "VertexCover.hpp"
 //#include "SearchTree.hpp"
 
 class SearchTree;
@@ -59,7 +60,7 @@ private:
 
 	double sigmoid(double x, double gain);
 
-	int probablistic_action_selection;
+	bool probablistic_action_selection;
 	int action_length;
 	double discount_factor;
 	double epsilon;
@@ -75,7 +76,24 @@ private:
 //	std::vector<double> qvalues_by_action_sequence; // length = 2
 	std::vector<double> probabilty_by_action;
 
-//	double previous_qvalue;
+	std::vector<VertexCover*> dominance_graph;
+
+
+	bool permutate_action;
+	std::vector<Action> action_permutation;
+	int permutateToOriginalAction(int input, int seqLength);
+
+//	bool wayToSort(const Action &a, const Action &b) const {
+//		if (usedActionSeqs[0][a] && usedActionSeqs[0][b]) {
+//			return true;
+//		} else if (usedActionSeqs[0][a] && !usedActionSeqs[0][b]){
+//			return false;
+//		} else if (!usedActionSeqs[0][a] && usedActionSeqs[0][b]){
+//			return false;
+//		} else {
+//			return false;
+//		}
+//	}
 };
 
 #endif /* SRC_AGENTS_ACTIONSEQUENCEDETECTION_HPP_ */

@@ -225,6 +225,8 @@ protected:
 
 	unsigned m_jasd_pruned_nodes;
 
+	// YJ: Use image for duplicate detection and every other things.
+	bool image_based;
 };
 
 #endif // __SEARCH_TREE_HPP__
