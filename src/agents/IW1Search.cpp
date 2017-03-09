@@ -140,7 +140,7 @@ void IW1Search::update_novelty_table(ALEState& machine_state) {
 		assert(get_screen(machine_state).arraySize() != 0);
 		const ALEScreen image = get_screen(machine_state);
 		int m_column = image.width();
-		printf("image_size=%d\n", image.arraySize());
+//		printf("image_size=%d\n", image.arraySize());
 		for (size_t i = 0; i < image.arraySize(); ++i) {
 			m_image_novelty_table->set(i,
 					image.get(i / m_column, i % m_column));
@@ -172,7 +172,7 @@ bool IW1Search::check_novelty_1(ALEState& machine_state) {
 	} else {
 		const ALEScreen image = get_screen(machine_state);
 		int m_column = image.width();
-		printf("image_size=%d\n", image.arraySize());
+//		printf("image_size=%d\n", image.arraySize());
 		for (size_t i = 0; i < image.arraySize(); ++i) {
 			if (m_image_novelty_table->isset(i,
 					image.get(i / m_column, i % m_column))) {

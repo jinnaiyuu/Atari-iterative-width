@@ -58,8 +58,8 @@ int BestFirstSearch::expand_node(TreeNode* curr_node) {
 			child = new TreeNode(curr_node, curr_node->state, this, act,
 					sim_steps_per_node, discount_factor);
 
-			if (check_novelty_1(child->state.getRAM())) {
-				update_novelty_table(child->state.getRAM());
+			if (check_novelty_1(child->state)) {
+				update_novelty_table(child->state);
 				child->novelty = 1;
 				m_gen_count_novelty1++;
 			} else {
@@ -84,8 +84,8 @@ int BestFirstSearch::expand_node(TreeNode* curr_node) {
 			// This recreates the novelty table (which gets resetted every time
 			// we change the root of the search tree)
 			if (m_novelty_pruning) {
-				if (check_novelty_1(child->state.getRAM())) {
-					update_novelty_table(child->state.getRAM());
+				if (check_novelty_1(child->state)) {
+					update_novelty_table(child->state);
 					child->novelty = 1;
 					m_gen_count_novelty1++;
 				} else {
@@ -140,7 +140,7 @@ int BestFirstSearch::reuse_branch(TreeNode* node) {
 	int num_simulated_steps = 0;
 
 	node->updateTreeNode();
-	update_novelty_table(node->state.getRAM());
+	update_novelty_table(node->state);
 
 	queue<TreeNode*> q;
 	q.push(node);
@@ -160,8 +160,8 @@ int BestFirstSearch::reuse_branch(TreeNode* node) {
 				// we change the root of the search tree)
 				if (m_novelty_pruning) {
 
-					if (check_novelty_1(child->state.getRAM())) {
-						update_novelty_table(child->state.getRAM());
+					if (check_novelty_1(child->state)) {
+						update_novelty_table(child->state);
 						if (!child->already_expanded) {
 							child->novelty = 1;
 						}
@@ -256,10 +256,10 @@ void BestFirstSearch::expand_tree(TreeNode* start_node) {
 		//COMMENT LINES BELOW, AND UNCOMMENT ABOVE TO WORKSHOP STYLE. ALSO CHANGE FN NOVEL 2ND QUEUE
 		//reset_branch( start_node );
 		//q_exploration->push(start_node);
-		update_novelty_table(start_node->state.getRAM());
+		update_novelty_table(start_node->state);
 	} else {
 		q_exploration->push(start_node);
-		update_novelty_table(start_node->state.getRAM());
+		update_novelty_table(start_node->state);
 	}
 
 	m_expanded_nodes = 0;

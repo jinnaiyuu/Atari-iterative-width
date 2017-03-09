@@ -1,5 +1,5 @@
-#ifndef __PERCOLATION_SEARCH_HPP__
-#define __PERCOLATION_SEARCH_HPP__
+#ifndef __SITE_PERCOLATION_HPP__
+#define __SITE_PERCOLATION_HPP__
 
 #include "SearchTree.hpp"
 #include "bit_matrix.hxx"
@@ -7,15 +7,15 @@
 
 #include <queue> // TODO: Implement priority queue
 
-class PercolationSearch: public SearchTree {
+class SitePercolation: public SearchTree {
 public:
-	PercolationSearch(RomSettings *, Settings &settings, ActionVect &actions,
+	SitePercolation(RomSettings *, Settings &settings, ActionVect &actions,
 			StellaEnvironment* _env);
 
-	virtual ~PercolationSearch();
+	virtual ~SitePercolation();
 
 	// node->fn is defined in calc_fn: it returns random number.
-	class TreeNodePercolation {
+	class SiteIPPriority {
 	public:
 		bool operator()(TreeNode* a, TreeNode* b) const {
 			if (b->fn < a->fn)
@@ -72,10 +72,7 @@ protected:
 	virtual void clear();
 	virtual void move_to_best_sub_branch();
 
-	bool test_duplicate_reward(TreeNode * node);
-
-	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
-			TreeNodePercolation> m_q_percolation;
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>, SiteIPPriority> m_q_percolation;
 
 	ALERAM m_ram;
 //	aptk::Bit_Matrix* m_ram_novelty_table; // TODO: replace with reward table.
@@ -88,7 +85,7 @@ protected:
 	bool m_novelty_boolean_representation;
 
 	bool m_expand_all_emulated_nodes; // True if we do not prune already emulated nodes because these nodes do not require additional computational overhead.
-
+//	bool test_duplicate_reward(TreeNode * node);
 };
 
 #endif // __IW_SEARCH_HPP__

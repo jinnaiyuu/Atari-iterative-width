@@ -27,12 +27,15 @@
 
 #include "UniformCostSearch.hpp"
 #include "BestFirstSearch.hpp"
-#include "PercolationSearch.hpp"
-
 #include "UCTSearchTree.hpp"
 #include "time.hxx"
 
 #include "Priorities.hpp"
+
+// YJ: IP searches
+#include "SitePercolation.hpp"
+#include "BondPercolation.hpp"
+
 
 SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 		StellaEnvironment* _env, bool player_B) :
@@ -77,8 +80,13 @@ SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 
 		search_tree->set_novelty_pruning();
 		m_trace.open("bfs.search-agent.trace");
+	} else if (search_method == "sips") {
+		search_tree = new SitePercolation(_settings, _osystem->settings(),
+				available_actions, _env);
+
+		m_trace.open("sips.search-agent.trace");
 	} else if (search_method == "bips") {
-		search_tree = new PercolationSearch(_settings, _osystem->settings(),
+		search_tree = new BondPercolation(_settings, _osystem->settings(),
 				available_actions, _env);
 
 		m_trace.open("bips.search-agent.trace");

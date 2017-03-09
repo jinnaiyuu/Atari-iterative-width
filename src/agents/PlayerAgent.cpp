@@ -58,6 +58,28 @@ PlayerAgent::PlayerAgent(OSystem* _osystem, RomSettings* _settings) :
 	if (!use_restricted_action_set)
 		available_actions = _settings->getAllActions();
 
+	extended_action_set = settings.getInt("extended_action_set", false);
+
+	if (extended_action_set <= 0) {
+		extended_action_set = 0;
+	} else if (extended_action_set == 1) {
+		// PLAYSTATION CONTROLLER = 9x9x2^8 = 9x2^7
+		// 2 8-way directional button
+		// 4 buttons (o, x,...)
+		// 4 LR buttons
+		vector<Action> playstation_actions = available_actions;
+		for (int i = 0; i < 3; ++i) {
+			playstation_actions.insert(playstation_actions.end(), available_actions.begin(), available_actions.end());
+		}
+		available_actions = playstation_actions;
+	} else if (extended_action_set == 2) {
+		vector<Action> simple_set(available_actions.begin(), available_actions.begin() + 6);
+		available_actions = simple_set;
+	} else {
+
+	}
+
+
 	m_player_B = false;
 }
 

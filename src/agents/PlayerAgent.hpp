@@ -93,7 +93,10 @@ protected:
     ALEState*		curr_state;
     string           m_alg_name;
     string           m_rom_name;
-    bool             m_player_B;    
+    bool             m_player_B;
+
+    // Fake action set
+	int extended_action_set;
 };
 
 

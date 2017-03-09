@@ -8,6 +8,7 @@ MODULE_OBJS := \
 	src/agents/SDLKeyboardAgent.o \
 	src/agents/SimpleBanditAgent.o \
 	src/agents/SearchAgent.o \
+	src/agents/VertexCover.o \
 	src/agents/ActionSequenceDetection.o \
 	src/agents/SearchTree.o \
 	src/agents/TreeNode.o \
@@ -18,6 +19,8 @@ MODULE_OBJS := \
 	src/agents/IW1Search.o \
 	src/agents/PIW1Search.o \
 	src/agents/BestFirstSearch.o \
+	src/agents/BondPercolation.o \
+	src/agents/SitePercolation.o \
 	src/agents/UniformCostSearch.o
 
 MODULE_DIRS += \
