@@ -37,7 +37,8 @@ public:
 		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const {
 			for (int i = 0; i < comps.size(); ++i) {
 				// !comps && !comps -> a and b are tied!
-				if (!comps[i]->operator ()(a, b) && !comps[i]->operator ()(b, a)) {
+				if (!comps[i]->operator ()(a, b)
+						&& !comps[i]->operator ()(b, a)) {
 					continue;
 				} else {
 					return comps[i]->operator ()(a, b);

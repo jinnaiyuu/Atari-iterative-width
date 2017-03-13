@@ -29,7 +29,7 @@
 //#include "ActionSequenceDetection.hpp"
 
 class SearchAgent;
-class ActionSequenceDetection;
+class DominatedActionSequenceDetection;
 
 class SearchTree {
 	/* *************************************************************************
@@ -218,7 +218,7 @@ protected:
 	int longest_junk_sequence;
 	int decision_frame_function;
 
-	ActionSequenceDetection* asd;
+	DominatedActionSequenceDetection* asd;
 
 //	int current_junk_length;
 	vector<Action> trajectory;

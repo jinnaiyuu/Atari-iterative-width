@@ -5,12 +5,14 @@
  *      Author: yuu
  */
 
-#include "ActionSequenceDetection.hpp"
+#include "DominatedActionSequenceDetection.hpp"
+
 #include "SearchTree.hpp"
 #include <random>
 #include <algorithm>
 
-ActionSequenceDetection::ActionSequenceDetection(Settings & settings) {
+DominatedActionSequenceDetection::DominatedActionSequenceDetection(
+		Settings & settings) {
 	probablistic_action_selection = settings.getBool(
 			"probablistic_action_selection", false);
 
@@ -42,10 +44,10 @@ ActionSequenceDetection::ActionSequenceDetection(Settings & settings) {
 	qvalues_by_action.resize(2);
 }
 
-ActionSequenceDetection::~ActionSequenceDetection() {
+DominatedActionSequenceDetection::~DominatedActionSequenceDetection() {
 }
 
-int ActionSequenceDetection::getDetectedUsedActionsSize() {
+int DominatedActionSequenceDetection::getDetectedUsedActionsSize() {
 	int n_used_actions = 0;
 	if (action_length == 1) {
 		if (probablistic_action_selection) {
@@ -82,7 +84,7 @@ int ActionSequenceDetection::getDetectedUsedActionsSize() {
 
 // Return the list of actions which is available given the previous action sequences
 //
-std::vector<bool> ActionSequenceDetection::getUsefulActions(
+std::vector<bool> DominatedActionSequenceDetection::getEffectiveActions(
 		std::vector<Action> previousActions) {
 
 	if (probablistic_action_selection) {
@@ -114,16 +116,28 @@ std::vector<bool> ActionSequenceDetection::getUsefulActions(
 	return available;
 }
 
-// TODO: Implement seqLength 1 first
-/**
- * 1.
- *
- *
- */
-void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
-		int seqLength) {
+void DominatedActionSequenceDetection::learnDominatedActionSequences(
+		SearchTree* tree, int seqLength) {
 	action_length = seqLength;
 
+	VertexCover* dgraph = new VertexCover(seq_size(1)); //TODO
+	dominance_graph.push_back(dgraph);
+
+	TreeNode* root = tree->get_root();
+	for (int i = 1; i <= seqLength; ++i) {
+		searchNode(root, seqLength, usedActionSeqs[seqLength]);
+	}
+
+	if (probablistic_action_selection) {
+		learnDASA(tree, seqLength);
+	} else {
+		learnDASP(tree, seqLength);
+	}
+
+}
+
+void DominatedActionSequenceDetection::learnDASA(SearchTree* tree,
+		int seqLength) {
 	if (action_permutation.empty()) {
 		for (int i = 0; i < PLAYER_A_MAX; ++i) {
 			action_permutation.push_back((Action) i);
@@ -133,102 +147,20 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 					action_permutation.end());
 		}
 	}
-//	action_permutation.clear();
 
-	if (usedActionSeqs.size() < seqLength) {
-//		assert(seqLength == usedActionSeqs.size() + 1);
-		usedActionSeqs.resize(seqLength);
-		int size = t_size(seqLength);
-		usedActionSeqs[seqLength - 1].resize(size);
-		usedActionSeqs[seqLength - 1].assign(size, false);
+	for (int i = 0; i < seqLength; ++i) {
+		num_novel_node_by_action[i].push_back(
+				std::vector<int>(seq_size(i + 1), 0));
+		num_duplicate_node_by_action[i].push_back(
+				std::vector<int>(seq_size(i + 1), 0));
 	}
 
-	if (probablistic_action_selection) {
-		num_novel_node_by_action[0].push_back(std::vector<int>(t_size(1), 0));
-		num_duplicate_node_by_action[0].push_back(
-				std::vector<int>(t_size(1), 0));
-		num_novel_node_by_action[1].push_back(std::vector<int>(t_size(2), 0));
-		num_duplicate_node_by_action[1].push_back(
-				std::vector<int>(t_size(2), 0));
-	}
+	std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
+	qvalues_by_action[0] = getQvaluesOfAllSequences(1);
+	int numPruned = std::count_if(qvalues_by_action[0].begin(),
+			qvalues_by_action[0].end(), [](double i) {return i > 0.1;});
 
-	// TODO: length=2; or should we keep this to l=1?
-	VertexCover* dgraph = new VertexCover(t_size(1));
-	dominance_graph.push_back(dgraph);
-
-	TreeNode* root = tree->get_root();
-	searchNode(root, seqLength, usedActionSeqs[seqLength - 1]);
-
-//	return isSequenceUsed;
-
-	if (!probablistic_action_selection) {
-		std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
-		if (std::count(minset.begin(), minset.end(), true)
-				< std::count(usedActionSeqs[0].begin(), usedActionSeqs[0].end(),
-						true)) {
-//			printf("usedActionSeqs:");
-//			for (int i = 0; i < PLAYER_A_MAX; i++)
-//				if (usedActionSeqs[0][i])
-//					printf("%s ", action_to_string((Action) i).c_str());
-//			printf("\n");
-//			printf("min coverage:");
-//			for (int i = 0; i < PLAYER_A_MAX; i++)
-//				if (minset[i])
-//					printf("%s ", action_to_string((Action) i).c_str());
-//			printf("\n");
-
-			if (permutate_action) {
-
-				printf("minset %d < %d\n",
-						std::count(minset.begin(), minset.end(), true),
-						std::count(usedActionSeqs[0].begin(),
-								usedActionSeqs[0].end(), true));
-				usedActionSeqs[0] = minset;
-
-				// REFACTOR: hand-scripted stable_sort: Not sure how to implement using lambda.
-
-				std::vector<Action> in;
-				std::vector<Action> notin;
-				for (int i = 0; i < action_permutation.size(); ++i) {
-					if (usedActionSeqs[0][action_permutation[i]]) {
-						in.push_back(action_permutation[i]);
-					} else {
-						notin.push_back(action_permutation[i]);
-					}
-				}
-				in.insert(in.end(), notin.begin(), notin.end());
-				action_permutation = in;
-			}
-			//		});
-		}
-		for (int i = 1; i < seqLength; ++i) {
-			printf("fixed   %d: ", i);
-			for (int j = 0; j < usedActionSeqs[i - 1].size(); ++j) {
-				if (usedActionSeqs[i - 1][j]) {
-					printf("o");
-				} else {
-					printf("x");
-				}
-			}
-			printf("\n");
-		}
-
-		printf("working %d: ", seqLength);
-		for (int j = 0; j < usedActionSeqs[seqLength - 1].size(); ++j) {
-			if (usedActionSeqs[seqLength - 1][j]) {
-				printf("o");
-			} else {
-				printf("x");
-			}
-		}
-		printf("\n");
-	} else {
-		std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
-		qvalues_by_action[0] = getQvaluesOfAllSequences(1);
-		int numPruned = std::count_if(qvalues_by_action[0].begin(),
-				qvalues_by_action[0].end(), [](double i) {return i > 0.1;});
-
-		if (std::count(minset.begin(), minset.end(), true) < numPruned) {
+	if (std::count(minset.begin(), minset.end(), true) < numPruned) {
 //			printf("qs: ");
 //			for (int i = 0; i < PLAYER_A_MAX; ++i) {
 //				if (qvalues_by_action[0][i] > 0.1)
@@ -242,12 +174,11 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 //					printf("%s ", action_to_string((Action) i).c_str());
 //			printf("\n");
 
-			printf("minset %d < %d\n",
-					std::count(minset.begin(), minset.end(), true), numPruned);
+		printf("minset %d < %d\n",
+				std::count(minset.begin(), minset.end(), true), numPruned);
 //			usedActionSeqs[0] = minset;
-			std::vector<bool> marked =
-					dominance_graph.back()->uniqueActionSet();
-			// REFACTOR: hand-scripted stable_sort: Not sure how to implement using lambda.
+		std::vector<bool> marked = dominance_graph.back()->uniqueActionSet();
+		// REFACTOR: hand-scripted stable_sort: Not sure how to implement using lambda.
 
 //			printf("pre qs: ");
 //			for (int i = 0; i < PLAYER_A_MAX; ++i) {
@@ -256,53 +187,53 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 //			}
 //			printf("\n");
 
-			if (permutate_action) {
-				std::vector<Action> unique;
-				std::vector<Action> cover;
-				std::vector<Action> notin;
-				for (int i = 0; i < action_permutation.size(); ++i) {
-					if (marked[action_permutation[i]]) {
-						unique.push_back(action_permutation[i]);
-					} else if (minset[action_permutation[i]]) {
-						cover.push_back(action_permutation[i]);
-					} else {
-						notin.push_back(action_permutation[i]);
-					}
+		if (permutate_action) {
+			std::vector<Action> unique;
+			std::vector<Action> cover;
+			std::vector<Action> notin;
+			for (int i = 0; i < action_permutation.size(); ++i) {
+				if (marked[action_permutation[i]]) {
+					unique.push_back(action_permutation[i]);
+				} else if (minset[action_permutation[i]]) {
+					cover.push_back(action_permutation[i]);
+				} else {
+					notin.push_back(action_permutation[i]);
 				}
-				unique.insert(unique.end(), cover.begin(), cover.end());
-				unique.insert(unique.end(), notin.begin(), notin.end());
-				action_permutation = unique;
 			}
+			unique.insert(unique.end(), cover.begin(), cover.end());
+			unique.insert(unique.end(), notin.begin(), notin.end());
+			action_permutation = unique;
+		}
 //			printf("ordered qs: ");
 //			for (int i = 0; i < PLAYER_A_MAX; ++i) {
 //				int a = action_permutation[i];
 //				printf("%.2f ", qvalues_by_action[0][a]);
 //			}
 //			printf("\n");
-		}
+	}
 
-		int size = t_size(seqLength);
+	int size = seq_size(seqLength);
 //		std::vector<Action> previousActions(seqLength - 1, PLAYER_A_NOOP);
-		qvalues_by_action[0] = getQvaluesOfAllSequences(1);
+	qvalues_by_action[0] = getQvaluesOfAllSequences(1);
+	if (seqLength >= 2) {
+		qvalues_by_action[1] = getQvaluesOfAllSequences(2);
+	}
+
+	probabilty_by_action = std::vector<double>(size, 0.0);
+	for (int a = 0; a < size; ++a) {
+		double norm1 = (qvalues_by_action[0][a % PLAYER_A_MAX] - 0.5) * 5.0;
+		double p1 = sigmoid(norm1, 1);
+		double p2 = 1.0;
 		if (seqLength >= 2) {
-			qvalues_by_action[1] = getQvaluesOfAllSequences(2);
+			double norm2 = (qvalues_by_action[1][a] - 0.5) * 5.0;
+			p2 = sigmoid(norm2, 1);
 		}
 
-		probabilty_by_action = std::vector<double>(size, 0.0);
-		for (int a = 0; a < size; ++a) {
-			double norm1 = (qvalues_by_action[0][a % PLAYER_A_MAX] - 0.5) * 5.0;
-			double p1 = sigmoid(norm1, 1);
-			double p2 = 1.0;
-			if (seqLength >= 2) {
-				double norm2 = (qvalues_by_action[1][a] - 0.5) * 5.0;
-				p2 = sigmoid(norm2, 1);
-			}
+		probabilty_by_action[a] = p1 * p2 * (1 - epsilon) + epsilon;
 
-			probabilty_by_action[a] = p1 * p2 * (1 - epsilon) + epsilon;
-
-			if (probabilty_by_action[a] > 1.0) {
-				probabilty_by_action[a] = 1.0;
-			}
+		if (probabilty_by_action[a] > 1.0) {
+			probabilty_by_action[a] = 1.0;
+		}
 //			if (qvalues_by_action[a] > junk_threshold) {
 //				probabilty_by_action[a] = 1.0;
 //			} else {
@@ -310,12 +241,12 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 //						* (1.0 - epsilon) + epsilon;
 //			}
 
-		}
-		printf("qs: ");
-		for (int a = 0; a < PLAYER_A_MAX; ++a) {
-			printf("%.2f ", qvalues_by_action[0][a]);
-		}
-		printf("\n");
+	}
+	printf("qs: ");
+	for (int a = 0; a < PLAYER_A_MAX; ++a) {
+		printf("%.2f ", qvalues_by_action[0][a]);
+	}
+	printf("\n");
 
 //		printf("ordered qs: ");
 //		for (int i = 0; i < PLAYER_A_MAX; ++i) {
@@ -324,13 +255,13 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 //		}
 //		printf("\n");
 
-		if (seqLength >= 2) {
-			printf("qs2: ");
-			for (int a = 0; a < size; ++a) {
-				printf("%.2f ", qvalues_by_action[1][a]);
-			}
-			printf("\n");
+	if (seqLength >= 2) {
+		printf("qs2: ");
+		for (int a = 0; a < size; ++a) {
+			printf("%.2f ", qvalues_by_action[1][a]);
 		}
+		printf("\n");
+	}
 //		qvalues_by_action.push_back(qvalues);
 
 //		printf("used: \n");
@@ -342,18 +273,87 @@ void ActionSequenceDetection::getJunkActionSequence(SearchTree* tree,
 //		}
 //		printf("\n");
 
+}
+
+void DominatedActionSequenceDetection::learnDASP(SearchTree* tree,
+		int seqLength) {
+
+	if (usedActionSeqs.size() < seqLength) {
+//		assert(seqLength == usedActionSeqs.size() + 1);
+		usedActionSeqs.resize(seqLength);
+		int size = seq_size(seqLength);
+		usedActionSeqs[seqLength - 1].resize(size);
+		usedActionSeqs[seqLength - 1].assign(size, false);
 	}
+
+	std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
+	if (std::count(minset.begin(), minset.end(), true)
+			< std::count(usedActionSeqs[0].begin(), usedActionSeqs[0].end(),
+					true)) {
+//			printf("usedActionSeqs:");
+//			for (int i = 0; i < PLAYER_A_MAX; i++)
+//				if (usedActionSeqs[0][i])
+//					printf("%s ", action_to_string((Action) i).c_str());
+//			printf("\n");
+//			printf("min coverage:");
+//			for (int i = 0; i < PLAYER_A_MAX; i++)
+//				if (minset[i])
+//					printf("%s ", action_to_string((Action) i).c_str());
+//			printf("\n");
+
+		if (permutate_action) {
+
+			printf("minset %d < %d\n",
+					std::count(minset.begin(), minset.end(), true),
+					std::count(usedActionSeqs[0].begin(),
+							usedActionSeqs[0].end(), true));
+			usedActionSeqs[0] = minset;
+
+			// REFACTOR: hand-scripted stable_sort: Not sure how to implement using lambda.
+
+			std::vector<Action> in;
+			std::vector<Action> notin;
+			for (int i = 0; i < action_permutation.size(); ++i) {
+				if (usedActionSeqs[0][action_permutation[i]]) {
+					in.push_back(action_permutation[i]);
+				} else {
+					notin.push_back(action_permutation[i]);
+				}
+			}
+			in.insert(in.end(), notin.begin(), notin.end());
+			action_permutation = in;
+		}
+		//		});
+	}
+	for (int i = 1; i < seqLength; ++i) {
+		printf("fixed   %d: ", i);
+		for (int j = 0; j < usedActionSeqs[i - 1].size(); ++j) {
+			if (usedActionSeqs[i - 1][j]) {
+				printf("o");
+			} else {
+				printf("x");
+			}
+		}
+		printf("\n");
+	}
+
+	printf("working %d: ", seqLength);
+	for (int j = 0; j < usedActionSeqs[seqLength - 1].size(); ++j) {
+		if (usedActionSeqs[seqLength - 1][j]) {
+			printf("o");
+		} else {
+			printf("x");
+		}
+	}
+	printf("\n");
+
 }
 
 // Apply recursive call
-void ActionSequenceDetection::searchNode(TreeNode* node, int seqLength,
+void DominatedActionSequenceDetection::searchNode(TreeNode* node, int seqLength,
 		std::vector<bool>& isSequenceUsed) {
 // 1. get actionList for the node
 	getUsedSequenceList(node, seqLength, isSequenceUsed);
-
-	if (seqLength == 2) {
-		getUsedSequenceList(node, 1, isSequenceUsed);
-	}
 
 // 2. recursively call this for child nodes
 	NodeList childList = sortNodeList(node->v_children);
@@ -363,19 +363,10 @@ void ActionSequenceDetection::searchNode(TreeNode* node, int seqLength,
 }
 
 // Get the UsedSequeneList for a single node
-// TODO: Action sequence is not supported yet
-void ActionSequenceDetection::getUsedSequenceList(TreeNode* node, int seqLength,
-		std::vector<bool>& isSequenceUsed) {
+void DominatedActionSequenceDetection::getUsedSequenceList(TreeNode* node,
+		int seqLength, std::vector<bool>& isSequenceUsed) {
 
-//	NodeList childList = node->v_children;
-//	std::vector<bool> usedAction;
-//	usedAction.resize(PLAYER_A_MAX);
-//	usedAction.assign(PLAYER_A_MAX, false);
-
-//	std::vector<Action> currSeq;
-//	getUsedSequenceRec(node, seqLength, isSequenceUsed, currSeq, 1);
-
-	int size = t_size(seqLength);
+	int size = seq_size(seqLength);
 	std::vector<TreeNode*> nodeList;
 
 	for (int i = 0; i < size; ++i) {
@@ -389,16 +380,6 @@ void ActionSequenceDetection::getUsedSequenceList(TreeNode* node, int seqLength,
 	}
 
 	if (probablistic_action_selection) {
-
-//		if (try_permutation)
-//		vector<Action> action_permutation;
-//		for (int i = 0; i < PLAYER_A_MAX; ++i) {
-//			action_permutation.push_back((Action) i);
-//		}
-//		std::random_shuffle(action_permutation.begin(),
-//				action_permutation.end());
-
-// TODO: t_size should be seqLength
 
 		for (int i = 0; i < size; ++i) {
 			if (nodeList[i] == nullptr || nodeList[i]->is_terminal) {
@@ -459,7 +440,7 @@ void ActionSequenceDetection::getUsedSequenceList(TreeNode* node, int seqLength,
 
 // TODO: for now we only detect single action dominance.
 	int tmp_seqLength = 1;
-	size = t_size(tmp_seqLength);
+	size = seq_size(tmp_seqLength);
 	for (int i = 0; i < size; ++i) {
 		if (nodeList[i] == nullptr || nodeList[i]->is_terminal) {
 			continue;
@@ -488,39 +469,7 @@ void ActionSequenceDetection::getUsedSequenceList(TreeNode* node, int seqLength,
 	}
 }
 
-//void ActionSequenceDetection::getUsedSequenceRec(TreeNode* node, int seqLength,
-//		std::vector<bool>& isSequenceUsed, std::vector<Action>& currSeq,
-//		int currDepth) {
-//	if (currDepth == seqLength) {
-//		NodeList childList = sortNodeList(node->v_children);
-//		for (int i = 0; i < childList.size(); ++i) {
-//			TreeNode* child = childList[i];
-//
-//			// TODO: find a way to check if the child is in fact redundant in a sequential fashion.
-//			// TODO: use "test_duplicate function?"
-//			// TODO: if (sibling->state.equals(node->state))
-//			if (!child->is_leaf()) {
-//				std::vector<Action> list = currSeq;
-//				list.push_back(child->act);
-//				isSequenceUsed[secToInt(list)] = true;
-//			}
-//		}
-//	} else {
-//		NodeList childList = sortNodeList(node->v_children);
-//		for (int i = 0; i < childList.size(); ++i) {
-//			TreeNode* child = childList[i];
-//			if (!child->is_leaf()) {
-//				std::vector<Action> list = currSeq;
-//				list.push_back(child->act);
-//				getUsedSequenceRec(child, seqLength, isSequenceUsed, list,
-//						currDepth + 1);
-//			}
-//		}
-//	}
-//
-//}
-
-int ActionSequenceDetection::seqToInt(std::vector<Action> sequence) {
+int DominatedActionSequenceDetection::seqToInt(std::vector<Action> sequence) {
 	int ret = 0;
 	for (int i = 0; i < sequence.size(); ++i) {
 		ret = ret * PLAYER_A_MAX + (int) sequence[i];
@@ -528,7 +477,7 @@ int ActionSequenceDetection::seqToInt(std::vector<Action> sequence) {
 	return ret;
 }
 
-std::vector<Action> ActionSequenceDetection::intToSeq(int seqInt,
+std::vector<Action> DominatedActionSequenceDetection::intToSeq(int seqInt,
 		int seqLength) {
 	std::vector<Action> sequence;
 	sequence.resize(seqLength);
@@ -545,13 +494,13 @@ bool nodeActionSort(const TreeNode* l, const TreeNode* r) {
 	return l->act < r->act;
 }
 
-NodeList ActionSequenceDetection::sortNodeList(NodeList childList) {
+NodeList DominatedActionSequenceDetection::sortNodeList(NodeList childList) {
 	NodeList sortedList = childList;
 	std::sort(sortedList.begin(), sortedList.end(), nodeActionSort);
 	return sortedList;
 }
 
-TreeNode * ActionSequenceDetection::getResultingNode(TreeNode * root,
+TreeNode * DominatedActionSequenceDetection::getResultingNode(TreeNode * root,
 		std::vector<Action> sequence) {
 	TreeNode* curr = root;
 	int currPath = 0;
@@ -586,7 +535,8 @@ TreeNode * ActionSequenceDetection::getResultingNode(TreeNode * root,
 	}
 }
 
-int ActionSequenceDetection::t_size(int seqLength) {
+// number of possible action sequences
+int DominatedActionSequenceDetection::seq_size(int seqLength) {
 	if (seqLength == 0) {
 		return 0;
 	}
@@ -597,9 +547,9 @@ int ActionSequenceDetection::t_size(int seqLength) {
 	return size;
 }
 
-std::vector<bool> ActionSequenceDetection::getWeightedProbableActions(
+std::vector<bool> DominatedActionSequenceDetection::getWeightedProbableActions(
 		std::vector<Action> previousActions) {
-	int size = t_size(previousActions.size() + 1);
+	int size = seq_size(previousActions.size() + 1);
 	std::vector<bool> ret(PLAYER_A_MAX, false);
 //	std::vector<double> qvalues = qvalues_by_action;
 
@@ -630,7 +580,7 @@ std::vector<bool> ActionSequenceDetection::getWeightedProbableActions(
 	return ret;
 }
 
-std::vector<double> ActionSequenceDetection::getQvaluesOfNextActions(
+std::vector<double> DominatedActionSequenceDetection::getQvaluesOfNextActions(
 		std::vector<Action> previousActions) {
 //	int size = t_size(previousActions.size() + 1);
 
@@ -645,7 +595,7 @@ std::vector<double> ActionSequenceDetection::getQvaluesOfNextActions(
 	return ret;
 }
 
-std::vector<double> ActionSequenceDetection::getQvaluesOfAllSequences(
+std::vector<double> DominatedActionSequenceDetection::getQvaluesOfAllSequences(
 		int seqLength) {
 ////	int size = t_size(previousActions.size() + 1);
 //	int size = t_size(action_length);
@@ -656,7 +606,7 @@ std::vector<double> ActionSequenceDetection::getQvaluesOfAllSequences(
 //	}
 //	return ret;
 
-	int size = t_size(seqLength);
+	int size = seq_size(seqLength);
 
 	std::vector<double> ret(size, 0.0);
 	for (int a = 0; a < size; ++a) {
@@ -677,7 +627,8 @@ std::vector<double> ActionSequenceDetection::getQvaluesOfAllSequences(
 
 }
 
-double ActionSequenceDetection::calcQvalue(int sequence, int seqLength) {
+double DominatedActionSequenceDetection::calcQvalue(int sequence,
+		int seqLength) {
 	double q = 0.0;
 	double normalizer = (1.0 - pow(discount_factor, maximum_steps_to_consider))
 			/ (1.0 - discount_factor);
@@ -703,8 +654,8 @@ double ActionSequenceDetection::calcQvalue(int sequence, int seqLength) {
 	return q / normalizer;
 }
 
-double ActionSequenceDetection::calcNovelRatio(int n_steps_before, int sequence,
-		int seqLength) {
+double DominatedActionSequenceDetection::calcNovelRatio(int n_steps_before,
+		int sequence, int seqLength) {
 	if (n_steps_before > (int) num_novel_node_by_action[seqLength - 1].size()) {
 		return 2.0;
 	}
@@ -725,11 +676,11 @@ double ActionSequenceDetection::calcNovelRatio(int n_steps_before, int sequence,
 	return (double) n / ((double) (n + d));
 }
 
-double ActionSequenceDetection::sigmoid(double x, double gain) {
+double DominatedActionSequenceDetection::sigmoid(double x, double gain) {
 	return 1.0 / (1.0 + exp(-gain * x));
 }
 
-int ActionSequenceDetection::permutateToOriginalAction(int input,
+int DominatedActionSequenceDetection::permutateToOriginalAction(int input,
 		int seqLength) {
 	vector<Action> seq = intToSeq(input, seqLength);
 	for (int j = 0; j < seq.size(); ++j) {

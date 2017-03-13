@@ -1,7 +1,8 @@
 #include "BreadthFirstSearch.hpp"
 #include "SearchAgent.hpp"
 #include <queue>
-#include "ActionSequenceDetection.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 
 /* *********************************************************************
    Constructor
@@ -96,7 +97,7 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 			if (!trajectory.empty()) {
 				vector<Action> p = getPreviousActions(curr_node,
 						longest_junk_sequence - 1);
-				isUsefulAction = asd->getUsefulActions(p);
+				isUsefulAction = asd->getEffectiveActions(p);
 			}
 		}
 

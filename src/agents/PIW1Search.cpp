@@ -1,7 +1,8 @@
 #include "PIW1Search.hpp"
 #include "SearchAgent.hpp"
 #include <list>
-#include "ActionSequenceDetection.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 
 PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -336,7 +337,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 			vector<Action> p = getPreviousActions(curr_node,
 					longest_junk_sequence - 1);
 //			if (longest_junk_sequence - 1 > 0) {
-			isUsefulAction = asd->getUsefulActions(p);
+			isUsefulAction = asd->getEffectiveActions(p);
 //			}
 		}
 	}

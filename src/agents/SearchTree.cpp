@@ -18,7 +18,8 @@
 
 //#include <time.h>
 #include <chrono>
-#include "ActionSequenceDetection.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 
 /* *********************************************************************
  Constructor
@@ -61,7 +62,7 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	if (action_sequence_detection) {
 		printf("RUNNING ACTION SEQUENCE DETECTION\n");
-		asd = new ActionSequenceDetection(settings);
+		asd = new DominatedActionSequenceDetection(settings);
 		junk_decision_frame = settings.getInt("junk_decision_frame", false);
 		junk_resurrection_frame = settings.getInt("junk_resurrection_frame",
 				false);
@@ -455,14 +456,14 @@ void SearchTree::getJunkActionSequence(int frame_number) {
 //		}
 
 //		if (longest_junk_sequence >= current_junk_length) {
-		asd->getJunkActionSequence(this, longest_junk_sequence);
+		asd->learnDominatedActionSequences(this, longest_junk_sequence);
 //		}
 
 	}
 }
 
 std::vector<bool> SearchTree::getUsefulActions(vector<Action> previousActions) {
-	return asd->getUsefulActions(previousActions);
+	return asd->getEffectiveActions(previousActions);
 }
 
 std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,

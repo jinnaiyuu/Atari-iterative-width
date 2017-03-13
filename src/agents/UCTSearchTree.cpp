@@ -12,11 +12,12 @@
  *  A subclass of SearchTree that implements UCT. 
  **************************************************************************** */
 #include "UCTSearchTree.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 #include "UCTTreeNode.hpp"
 
 #include "random_tools.h"
 #include "misc_tools.h"
-#include "ActionSequenceDetection.hpp"
 
 UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -177,7 +178,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 					if (!trajectory.empty()) {
 						vector<Action> p = getPreviousActions(node,
 								longest_junk_sequence);
-						vector<bool> isUsefulAction = asd->getUsefulActions(p);
+						vector<bool> isUsefulAction = asd->getEffectiveActions(p);
 					}
 				}
 				for (int a = 0; a < isUsefulAction.size(); ++a) {
@@ -211,7 +212,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 				if (!trajectory.empty()) {
 					vector<Action> p = getPreviousActions(node,
 							longest_junk_sequence);
-					vector<bool> isUsefulAction = asd->getUsefulActions(p);
+					vector<bool> isUsefulAction = asd->getEffectiveActions(p);
 				}
 			}
 			for (int a = 0; a < isUsefulAction.size(); ++a) {
@@ -436,7 +437,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 		vector<bool> isUsefulAction(PLAYER_A_MAX, true);
 		if (action_sequence_detection) {
 			if (!trajectory.empty()) {
-				isUsefulAction = asd->getUsefulActions(previousActions);
+				isUsefulAction = asd->getEffectiveActions(previousActions);
 			}
 		}
 		for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {

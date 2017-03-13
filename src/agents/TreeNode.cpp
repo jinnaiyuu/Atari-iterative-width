@@ -132,6 +132,7 @@ int TreeNode::num_nodes() {
   int numNodes = 0;
 
   for (size_t a = 0; a < v_children.size(); a++) {
+		if (v_children[a] == nullptr) {continue;}
     if (v_children[a]->is_initialized())
       numNodes += v_children[a]->num_nodes();
   }

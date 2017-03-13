@@ -18,28 +18,28 @@
 
 #include "TreeNode.hpp"
 
-class UCTTreeNode: public TreeNode  {
-  public:
-    UCTTreeNode(TreeNode *parent, ALEState &parentState); 
-    
-    UCTTreeNode(TreeNode *parent, ALEState &parentState, 
-      int num_simulate_steps, Action a, SearchTree *tree);	
+class UCTTreeNode: public TreeNode {
+public:
+	UCTTreeNode(TreeNode *parent, ALEState &parentState);
 
-    int num_steps() {
-	int num_steps = 0;
-	
-	for (size_t a = 0; a < v_children.size(); a++) {
-	    if (v_children[a]->is_initialized())
-		num_steps += ((UCTTreeNode*)v_children[a])->num_steps();
+	UCTTreeNode(TreeNode *parent, ALEState &parentState, int num_simulate_steps,
+			Action a, SearchTree *tree);
+
+	int num_steps() {
+		int num_steps = 0;
+
+		for (size_t a = 0; a < v_children.size(); a++) {
+			if (v_children[a]->is_initialized())
+				num_steps += ((UCTTreeNode*) v_children[a])->num_steps();
+		}
+
+		return num_steps + sim_steps;
 	}
-	
-	return num_steps + sim_steps;
-    }
-    
-    /** Additional UCT-specific variables */
-    int visit_count; // The number of visits to this node
-    float sum_returns; // The sum of the returns received from this node
-    int sim_steps; // The Simulation of the rollout steps
+
+	/** Additional UCT-specific variables */
+	int visit_count; // The number of visits to this node
+	float sum_returns; // The sum of the returns received from this node
+	int sim_steps; // The Simulation of the rollout steps
 };
 
 #endif // __UCT_TREE_NODE_HPP__

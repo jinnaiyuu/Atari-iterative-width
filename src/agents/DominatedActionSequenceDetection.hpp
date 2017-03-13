@@ -5,8 +5,8 @@
  *      Author: yuu
  */
 
-#ifndef SRC_AGENTS_ACTIONSEQUENCEDETECTION_HPP_
-#define SRC_AGENTS_ACTIONSEQUENCEDETECTION_HPP_
+#ifndef SRC_AGENTS_DOMINATEDACTIONSEQUENCEDETECTION_HPP_
+#define SRC_AGENTS_DOMINATEDACTIONSEQUENCEDETECTION_HPP_
 
 #include "Settings.hxx"
 #include "Constants.h"
@@ -16,17 +16,20 @@
 class SearchTree;
 class TreeNode;
 
-class ActionSequenceDetection {
+class DominatedActionSequenceDetection {
 public:
-	ActionSequenceDetection(Settings & settings);
-	virtual ~ActionSequenceDetection();
+	DominatedActionSequenceDetection(Settings & settings);
+	virtual ~DominatedActionSequenceDetection();
 
-	void getJunkActionSequence(SearchTree* tree, int seqLength);
+	void learnDominatedActionSequences(SearchTree* tree, int seqLength);
 
-	std::vector<bool> getUsefulActions(std::vector<Action> previousActions);
+	std::vector<bool> getEffectiveActions(std::vector<Action> previousActions);
 	int getDetectedUsedActionsSize();
 
 private:
+	void learnDASA(SearchTree* tree, int seqLength);
+	void learnDASP(SearchTree* tree, int seqLength);
+
 	void searchNode(TreeNode* tree, int seqLength,
 			std::vector<bool>& isSequenceUsed);
 	void getUsedSequenceList(TreeNode* node, int seqLength,
@@ -44,11 +47,10 @@ private:
 
 //	bool nodeActionSort(const TreeNode* l, const TreeNode* r);
 
-	int t_size(int seqLength);
+	int seq_size(int seqLength);
 
 	/**
-	 * Probablistic action selection 2016/09/01
-	 *
+	 * Dominated Action Sequence Avoidance
 	 */
 	std::vector<bool> getWeightedProbableActions(
 			std::vector<Action> previousActions);
@@ -60,7 +62,7 @@ private:
 
 	double sigmoid(double x, double gain);
 
-	bool probablistic_action_selection;
+	bool probablistic_action_selection; // True if DASA, False if DASP
 	int action_length;
 	double discount_factor;
 	double epsilon;
@@ -96,4 +98,4 @@ private:
 //	}
 };
 
-#endif /* SRC_AGENTS_ACTIONSEQUENCEDETECTION_HPP_ */
+#endif /* SRC_AGENTS_DOMINATEDACTIONSEQUENCEDETECTION_HPP_ */

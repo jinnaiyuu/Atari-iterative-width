@@ -2,7 +2,8 @@
 
 #include "SearchAgent.hpp"
 #include <list>
-#include "ActionSequenceDetection.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 
 SitePercolation::SitePercolation(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -80,7 +81,7 @@ int SitePercolation::expand_node(TreeNode* curr_node) {
 			vector<Action> p = getPreviousActions(curr_node,
 					longest_junk_sequence - 1);
 //			if (longest_junk_sequence - 1 > 0) {
-			isUsefulAction = asd->getUsefulActions(p);
+			isUsefulAction = asd->getEffectiveActions(p);
 //			}
 		}
 	}
