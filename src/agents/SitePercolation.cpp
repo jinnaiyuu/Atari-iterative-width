@@ -79,9 +79,9 @@ int SitePercolation::expand_node(TreeNode* curr_node) {
 	if (action_sequence_detection) {
 		if (!trajectory.empty()) {
 			vector<Action> p = getPreviousActions(curr_node,
-					longest_junk_sequence - 1);
+					dasd_sequence_length - 1);
 //			if (longest_junk_sequence - 1 > 0) {
-			isUsefulAction = asd->getEffectiveActions(p);
+			isUsefulAction = dasd->getEffectiveActions(p);
 //			}
 		}
 	}

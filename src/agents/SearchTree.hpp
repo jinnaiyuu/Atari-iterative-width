@@ -215,10 +215,10 @@ protected:
 	bool action_sequence_detection; // true if it applies ASD.
 	int junk_decision_frame;
 	int junk_resurrection_frame;
-	int longest_junk_sequence;
+	int dasd_sequence_length;
 	int decision_frame_function;
 
-	DominatedActionSequenceDetection* asd;
+	DominatedActionSequenceDetection* dasd;
 
 //	int current_junk_length;
 	vector<Action> trajectory;

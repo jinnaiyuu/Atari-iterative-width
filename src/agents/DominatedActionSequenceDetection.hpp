@@ -28,6 +28,9 @@ public:
 
 private:
 	void learnDASA(SearchTree* tree, int seqLength);
+	std::vector<double> novelty_to_probabilities(int seqLength);
+	std::vector<Action> sortByNovelty(std::vector<bool> marked, std::vector<bool> minset);
+
 	void learnDASP(SearchTree* tree, int seqLength);
 
 	void searchNode(TreeNode* tree, int seqLength,
@@ -43,11 +46,11 @@ private:
 	std::vector<TreeNode*> sortNodeList(std::vector<TreeNode*> childList);
 	TreeNode* getResultingNode(TreeNode* root, std::vector<Action> sequence);
 
-	std::vector<std::vector<bool> > usedActionSeqs;
+	std::vector<std::vector<bool> > isUsefulActionSequence;
 
 //	bool nodeActionSort(const TreeNode* l, const TreeNode* r);
 
-	int seq_size(int seqLength);
+	int num_sequences(int seqLength) const;
 
 	/**
 	 * Dominated Action Sequence Avoidance
@@ -62,7 +65,7 @@ private:
 
 	double sigmoid(double x, double gain);
 
-	bool probablistic_action_selection; // True if DASA, False if DASP
+	bool isDASA; // True if DASA, False if DASP
 	int action_length;
 	double discount_factor;
 	double epsilon;
@@ -74,12 +77,11 @@ private:
 //	std::vector<std::vector<int> > num_novel_node_by_action_sequence;
 //	std::vector<std::vector<int> > num_duplicate_node_by_action_sequence;
 
-	std::vector<std::vector<double> > qvalues_by_action; // length = 1
+	std::vector<std::vector<double> > ratio_of_novelty; // length = 1
 //	std::vector<double> qvalues_by_action_sequence; // length = 2
 	std::vector<double> probabilty_by_action;
 
 	std::vector<VertexCover*> dominance_graph;
-
 
 	bool permutate_action;
 	std::vector<Action> action_permutation;

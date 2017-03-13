@@ -177,8 +177,8 @@ int UCTSearchTree::single_uct_iteration(void) {
 				if (action_sequence_detection) {
 					if (!trajectory.empty()) {
 						vector<Action> p = getPreviousActions(node,
-								longest_junk_sequence);
-						vector<bool> isUsefulAction = asd->getEffectiveActions(p);
+								dasd_sequence_length);
+						vector<bool> isUsefulAction = dasd->getEffectiveActions(p);
 					}
 				}
 				for (int a = 0; a < isUsefulAction.size(); ++a) {
@@ -211,8 +211,8 @@ int UCTSearchTree::single_uct_iteration(void) {
 			if (action_sequence_detection) {
 				if (!trajectory.empty()) {
 					vector<Action> p = getPreviousActions(node,
-							longest_junk_sequence);
-					vector<bool> isUsefulAction = asd->getEffectiveActions(p);
+							dasd_sequence_length);
+					vector<bool> isUsefulAction = dasd->getEffectiveActions(p);
 				}
 			}
 			for (int a = 0; a < isUsefulAction.size(); ++a) {
@@ -423,7 +423,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 	vector<Action> previousActions;
 	if (action_sequence_detection) {
 		previousActions = getPreviousActions(start_node,
-				longest_junk_sequence);
+				dasd_sequence_length);
 	}
 
 	for (int i = 0; i < sim_steps; ++i) {
@@ -437,7 +437,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 		vector<bool> isUsefulAction(PLAYER_A_MAX, true);
 		if (action_sequence_detection) {
 			if (!trajectory.empty()) {
-				isUsefulAction = asd->getEffectiveActions(previousActions);
+				isUsefulAction = dasd->getEffectiveActions(previousActions);
 			}
 		}
 		for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {

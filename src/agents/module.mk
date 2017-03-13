@@ -9,7 +9,7 @@ MODULE_OBJS := \
 	src/agents/SimpleBanditAgent.o \
 	src/agents/SearchAgent.o \
 	src/agents/VertexCover.o \
-	src/agents/ActionSequenceDetection.o \
+	src/agents/DominatedActionSequenceDetection.o \
 	src/agents/SearchTree.o \
 	src/agents/TreeNode.o \
 	src/agents/FullSearchTree.o \

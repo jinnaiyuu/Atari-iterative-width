@@ -96,8 +96,8 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 		if (action_sequence_detection) {
 			if (!trajectory.empty()) {
 				vector<Action> p = getPreviousActions(curr_node,
-						longest_junk_sequence - 1);
-				isUsefulAction = asd->getEffectiveActions(p);
+						dasd_sequence_length - 1);
+				isUsefulAction = dasd->getEffectiveActions(p);
 			}
 		}
 

@@ -175,6 +175,7 @@ Action SearchAgent::act() {
 
 	m_curr_action = search_tree->get_best_action();
 
+	// TOREFACTOR: these commands should be emplaced within SearchTree.
 	search_tree->getJunkActionSequence(frame_number); // TODO: messy
 	search_tree->saveUsedAction(frame_number, m_curr_action);
 

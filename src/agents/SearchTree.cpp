@@ -62,11 +62,12 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	if (action_sequence_detection) {
 		printf("RUNNING ACTION SEQUENCE DETECTION\n");
-		asd = new DominatedActionSequenceDetection(settings);
+		dasd = new DominatedActionSequenceDetection(settings);
 		junk_decision_frame = settings.getInt("junk_decision_frame", false);
 		junk_resurrection_frame = settings.getInt("junk_resurrection_frame",
 				false);
-		longest_junk_sequence = settings.getInt("longest_junk_sequence", false);
+		dasd_sequence_length = settings.getInt("longest_junk_sequence", false)
+				|| settings.getInt("dasd_sequence_length", false);
 
 		decision_frame_function = settings.getInt("decision_frame_function",
 				false);
@@ -83,8 +84,8 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 			decision_frame_function = 1;
 		}
 
-		if (longest_junk_sequence < 0) {
-			longest_junk_sequence = 2;
+		if (dasd_sequence_length < 0) {
+			dasd_sequence_length = 2;
 		}
 
 //		current_junk_length = 1;
@@ -115,7 +116,7 @@ void SearchTree::clear(void) {
 SearchTree::~SearchTree(void) {
 	clear();
 	if (action_sequence_detection) {
-		delete asd;
+		delete dasd;
 	}
 }
 
@@ -206,7 +207,9 @@ void SearchTree::move_to_best_sub_branch(void) {
 
 	// Delete all the other branches
 	for (size_t del = 0; del < p_root->v_children.size(); del++) {
-		if (p_root->v_children[del] == nullptr) {continue;}
+		if (p_root->v_children[del] == nullptr) {
+			continue;
+		}
 		if (del != (size_t) p_root->best_branch) {
 			delete_branch(p_root->v_children[del]);
 		}
@@ -227,7 +230,9 @@ void SearchTree::move_to_best_sub_branch(void) {
 void SearchTree::delete_branch(TreeNode* node) {
 	if (!node->v_children.empty()) {
 		for (size_t c = 0; c < node->v_children.size(); c++) {
-			if (node->v_children[c] == nullptr) {continue;}
+			if (node->v_children[c] == nullptr) {
+				continue;
+			}
 			delete_branch(node->v_children[c]);
 		}
 	}
@@ -438,7 +443,7 @@ void SearchTree::print_frame_data(int frame_number, float elapsed,
 
 void SearchTree::getJunkActionSequence(int frame_number) {
 	if (action_sequence_detection) {
-		int agent_frame = frame_number / 5;
+//		int agent_frame = frame_number / 5;
 //		int decision_frame = junk_decision_frame
 //				* pow(current_junk_length, decision_frame_function);
 
@@ -456,14 +461,14 @@ void SearchTree::getJunkActionSequence(int frame_number) {
 //		}
 
 //		if (longest_junk_sequence >= current_junk_length) {
-		asd->learnDominatedActionSequences(this, longest_junk_sequence);
+		dasd->learnDominatedActionSequences(this, dasd_sequence_length);
 //		}
 
 	}
 }
 
 std::vector<bool> SearchTree::getUsefulActions(vector<Action> previousActions) {
-	return asd->getEffectiveActions(previousActions);
+	return dasd->getEffectiveActions(previousActions);
 }
 
 std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,
@@ -495,7 +500,7 @@ void SearchTree::saveUsedAction(int frame_number, Action action) {
 
 int SearchTree::getDetectedUsedActionsSize() {
 	if (action_sequence_detection) {
-		return asd->getDetectedUsedActionsSize();
+		return dasd->getDetectedUsedActionsSize();
 	} else {
 		return 0;
 	}

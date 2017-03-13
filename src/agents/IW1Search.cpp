@@ -1,7 +1,8 @@
 #include "IW1Search.hpp"
 #include "SearchAgent.hpp"
 #include <list>
-#include "ActionSequenceDetection.hpp"
+
+#include "DominatedActionSequenceDetection.hpp"
 
 IW1Search::IW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -212,11 +213,11 @@ int IW1Search::expand_node(TreeNode* curr_node, queue<TreeNode*>& q) {
 	if (action_sequence_detection) {
 		if (!trajectory.empty()) {
 			vector<Action> p = getPreviousActions(curr_node,
-					longest_junk_sequence - 1);
+					dasd_sequence_length - 1);
 //			if (longest_junk_sequence > 0) {
 //				p.push_back(curr_node->act);
 //				p.assign(trajectory.end() - 1, trajectory.end());
-			isUsefulAction = asd->getUsefulActions(p);
+			isUsefulAction = dasd->getEffectiveActions(p);
 //				for (int i = 0; i < PLAYER_A_MAX; ++i) {
 //					if (isUsefulAction[i]) {
 //						printf("o");
