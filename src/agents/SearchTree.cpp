@@ -62,27 +62,21 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	if (action_sequence_detection) {
 		printf("RUNNING ACTION SEQUENCE DETECTION\n");
-		dasd = new DominatedActionSequenceDetection(settings);
-		junk_decision_frame = settings.getInt("junk_decision_frame", false);
-		junk_resurrection_frame = settings.getInt("junk_resurrection_frame",
-				false);
-		dasd_sequence_length = settings.getInt("longest_junk_sequence", false)
-				|| settings.getInt("dasd_sequence_length", false);
+		dasd = new DominatedActionSequenceDetection(settings, _env);
+		dasd_sequence_length = max(
+				settings.getInt("longest_junk_sequence", false),
+				settings.getInt("dasd_sequence_length", false));
 
-		decision_frame_function = settings.getInt("decision_frame_function",
-				false);
+//		decision_frame_function = settings.getInt("decision_frame_function",
+//				false);
 
-		if (junk_decision_frame < 0) {
-			junk_decision_frame = 12; // 5 seconds in game
-		}
+//		if (junk_resurrection_frame < 0) {
+//			junk_resurrection_frame = 20;
+//		}
 
-		if (junk_resurrection_frame < 0) {
-			junk_resurrection_frame = 20;
-		}
-
-		if (decision_frame_function < 0) {
-			decision_frame_function = 1;
-		}
+//		if (decision_frame_function < 0) {
+//			decision_frame_function = 1;
+//		}
 
 		if (dasd_sequence_length < 0) {
 			dasd_sequence_length = 2;
@@ -377,6 +371,19 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 	return i;
 }
 
+// Simulate game randomly using a particular action_set.
+int SearchTree::simulate_game_random(ALEState & state, ActionVect&action_set,
+		int num_steps, return_t &traj_return, bool &game_ended,
+		bool discount_return, bool save_state) {
+	ActionVect buffer = available_actions;
+	available_actions = action_set;
+	int steps = simulate_game(state, RANDOM, num_steps, traj_return, game_ended,
+			discount_return, save_state);
+	available_actions = buffer;
+
+	return steps;
+}
+
 return_t SearchTree::normalize(reward_t reward) {
 	if (reward == 0)
 		return 0;
@@ -467,9 +474,13 @@ void SearchTree::getJunkActionSequence(int frame_number) {
 	}
 }
 
-std::vector<bool> SearchTree::getUsefulActions(vector<Action> previousActions) {
-	return dasd->getEffectiveActions(previousActions);
-}
+//std::vector<bool> SearchTree::getUsefulActions(vector<Action> previousActions) {
+//	if (m_env->getFrameNumber() < junk_decision_frame) {
+//		return vector<bool>(PLAYER_A_MAX, true);
+//	} else {
+//		return dasd->getEffectiveActions(previousActions);
+//	}
+//}
 
 std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,
 		int seqLength) {

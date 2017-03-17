@@ -27,7 +27,7 @@ PlayerAgent::PlayerAgent(OSystem* _osystem, RomSettings* _settings) :
 		p_osystem(_osystem), p_rom_settings(_settings), frame_number(0), episode_frame_number(
 				0), episode_number(0), available_actions(
 				_settings->getMinimalActionSet()), m_has_terminated(false), curr_state(
-				NULL) {
+		NULL) {
 	Settings& settings = p_osystem->settings();
 
 	i_max_num_episodes = settings.getInt("max_num_episodes", true);
@@ -69,16 +69,29 @@ PlayerAgent::PlayerAgent(OSystem* _osystem, RomSettings* _settings) :
 		// 4 LR buttons
 		vector<Action> playstation_actions = available_actions;
 		for (int i = 0; i < 3; ++i) {
-			playstation_actions.insert(playstation_actions.end(), available_actions.begin(), available_actions.end());
+			playstation_actions.insert(playstation_actions.end(),
+					available_actions.begin(), available_actions.end());
 		}
 		available_actions = playstation_actions;
 	} else if (extended_action_set == 2) {
-		vector<Action> simple_set(available_actions.begin(), available_actions.begin() + 6);
+		vector<Action> simple_set(available_actions.begin(),
+				available_actions.begin() + 6);
 		available_actions = simple_set;
 	} else {
-
 	}
-
+	int biased_action_set = settings.getInt("biased_action_set", false);
+	if (biased_action_set > 0) {
+		printf("biased_action_set\n");
+		vector<Action> biased = available_actions;
+		vector<Action> minimal = _settings->getMinimalActionSet();
+		Action ract = (Action) (rand() % PLAYER_A_MAX);
+		for (int i = 0; i < biased.size(); ++i) {
+			if (std::find(minimal.begin(), minimal.end(), biased[i])
+					== minimal.end()) {
+				biased[i] = ract;
+			}
+		}
+	}
 
 	m_player_B = false;
 }

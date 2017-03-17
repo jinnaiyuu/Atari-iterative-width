@@ -94,11 +94,15 @@ protected:
 	/** For debugging purposes */
 	void print_path(TreeNode * node, int c);
 
+	int uct_biased_rollout;
+	Action biased_action;
+
 protected:
 	int uct_max_simulations;
 	int uct_search_depth; // Number of frames to simulate to when performing
 	// Monte-Carlo search
 	float uct_exploration_constant; // Exploration constant
+	int uct_num_monte_carlo;
 };
 
 #endif // __UCT_SEARCH_TREE_HPP__

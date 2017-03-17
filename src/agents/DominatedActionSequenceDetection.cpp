@@ -12,7 +12,14 @@
 #include <algorithm>
 
 DominatedActionSequenceDetection::DominatedActionSequenceDetection(
-		Settings & settings) {
+		Settings & settings, StellaEnvironment* _env) :
+		m_env(_env) {
+	junk_decision_frame = settings.getInt("junk_decision_frame", false);
+
+	if (junk_decision_frame < 0) {
+		junk_decision_frame = 12; // 5 seconds in game
+	}
+
 	isDASA = settings.getBool("probablistic_action_selection", false)
 			|| settings.getBool("probabilistic_action_selection", false)
 			|| settings.getBool("dasa", false);
@@ -88,9 +95,12 @@ int DominatedActionSequenceDetection::getDetectedUsedActionsSize() {
 //
 std::vector<bool> DominatedActionSequenceDetection::getEffectiveActions(
 		std::vector<Action> previousActions) {
+	if (junk_decision_frame > m_env->getFrameNumber()) {
+		return vector<bool>(PLAYER_A_MAX, true);
+	}
 
 	if (isDASA) {
-		return getWeightedProbableActions(previousActions);
+		return getDASAActionSet(previousActions);
 	}
 
 	std::vector<bool> available = isUsefulActionSequence[0];
@@ -99,9 +109,7 @@ std::vector<bool> DominatedActionSequenceDetection::getEffectiveActions(
 
 // i <- the length of junk to check.
 	for (int i = 2; i <= length; ++i) {
-		std::vector<Action> p;
-		p.resize(i);
-		p.assign(previousActions.end() - i, previousActions.end());
+		std::vector<Action> p(previousActions.end() - i, previousActions.end());
 
 		for (int j = 0; j < PLAYER_A_MAX; ++j) {
 			std::vector<Action> sequence = p;
@@ -151,12 +159,11 @@ void DominatedActionSequenceDetection::learnDominatedActionSequences(
 		}
 	}
 
-	VertexCover* dgraph = new VertexCover(num_sequences(1)); //TODO
-	dominance_graph.push_back(dgraph);
-
 	TreeNode* root = tree->get_root();
 	for (int i = 1; i <= seqLength; ++i) {
-		searchNode(root, seqLength, isUsefulActionSequence[seqLength - 1]);
+		VertexCover dgraph(num_sequences(i)); //TODO
+		dominance_graph.push_back(dgraph);
+		searchNode(root, i, isUsefulActionSequence[i - 1]);
 	}
 
 	if (isDASA) {
@@ -171,15 +178,14 @@ void DominatedActionSequenceDetection::learnDASA(SearchTree* tree,
 		int seqLength) {
 
 	if (permutate_action) {
-		std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
+		std::vector<bool> minset = dominance_graph[0].minimalActionSet();
 		ratio_of_novelty[0] = getQvaluesOfAllSequences(1);
 		int numPruned = std::count_if(ratio_of_novelty[0].begin(),
 				ratio_of_novelty[0].end(), [](double i) {return i < 0.1;});
 		if (std::count(minset.begin(), minset.end(), true) < numPruned) {
 			printf("minset %d < %d\n",
 					std::count(minset.begin(), minset.end(), true), numPruned);
-			std::vector<bool> marked =
-					dominance_graph.back()->uniqueActionSet();
+			std::vector<bool> marked = dominance_graph[0].uniqueActionSet();
 			action_permutation = sortByNovelty(marked, minset);
 		}
 	}
@@ -244,8 +250,8 @@ std::vector<Action> DominatedActionSequenceDetection::sortByNovelty(
 void DominatedActionSequenceDetection::learnDASP(SearchTree* tree,
 		int seqLength) {
 
-	std::vector<bool> minset = dominance_graph.back()->minimalActionSet();
 	if (permutate_action) {
+		std::vector<bool> minset = dominance_graph[0].minimalActionSet();
 		if (std::count(minset.begin(), minset.end(), true)
 				< std::count(isUsefulActionSequence[0].begin(),
 						isUsefulActionSequence[0].end(), true)) {
@@ -376,13 +382,12 @@ void DominatedActionSequenceDetection::getUsedSequenceList(TreeNode* node,
 	}
 
 // TODO: for now we only detect single action dominance.
-	int tmp_seqLength = 1;
-	size = num_sequences(tmp_seqLength);
+//	if (seqLength == 1) {
 	for (int i = 0; i < size; ++i) {
 		if (nodeList[i] == nullptr || nodeList[i]->is_terminal) {
 			continue;
 		}
-		int iInt = permutateToOriginalAction(i, tmp_seqLength);
+		int iInt = permutateToOriginalAction(i, seqLength);
 
 		bool isDuplicate = false;
 		for (int j = 0; j < size; ++j) {
@@ -395,14 +400,15 @@ void DominatedActionSequenceDetection::getUsedSequenceList(TreeNode* node,
 
 			if (nodeList[i]->state.equals(nodeList[j]->state)) {
 				isDuplicate = true;
-				int jInt = permutateToOriginalAction(j, tmp_seqLength);
-				dominance_graph.back()->addEdge(iInt, jInt);
+				int jInt = permutateToOriginalAction(j, seqLength);
+				dominance_graph[seqLength - 1].addEdge(iInt, jInt);
 				break;
 			}
 		}
 		if (!isDuplicate) {
-			dominance_graph.back()->addNode(iInt);
+			dominance_graph[seqLength - 1].addNode(iInt);
 		}
+//		}
 	}
 }
 
@@ -484,7 +490,7 @@ int DominatedActionSequenceDetection::num_sequences(int seqLength) const {
 	return size;
 }
 
-std::vector<bool> DominatedActionSequenceDetection::getWeightedProbableActions(
+std::vector<bool> DominatedActionSequenceDetection::getDASAActionSet(
 		std::vector<Action> previousActions) {
 	int size = num_sequences(previousActions.size() + 1);
 	std::vector<bool> ret(PLAYER_A_MAX, false);
@@ -617,8 +623,12 @@ double DominatedActionSequenceDetection::sigmoid(double x, double gain) {
 	return 1.0 / (1.0 + exp(-gain * x));
 }
 
+// Action permutation
 int DominatedActionSequenceDetection::permutateToOriginalAction(int input,
 		int seqLength) {
+	if (!permutate_action) {
+		return input;
+	}
 	vector<Action> seq = intToSeq(input, seqLength);
 	for (int j = 0; j < seq.size(); ++j) {
 		for (int p = 0; p < PLAYER_A_MAX; ++p) {

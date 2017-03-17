@@ -51,37 +51,19 @@ public:
 	// node->fn is defined in calc_fn: it returns random number.
 	class BondIPPrioirty: public Comparator {
 	public:
-		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const {
-			if (a->priority < b->priority)
-				return true;
-			else
-				return false;
-		}
+		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const;
 	};
 
 	class DepthPriority: public Comparator {
 	public:
-		// TODO: Refactor using func call
-		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const {
-			if (a->node->depth() > b->node->depth()) {
-				return true;
-			} else {
-				return false;
-			}
-		}
+		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const;
 	};
 
 	class NoveltyPriority: public Comparator {
 	public:
-		// TODO: Refactor using func call
-		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const {
-			if (a->node->novelty < b->node->novelty) {
-				return true;
-			} else {
-				return false;
-			}
-		}
+		bool operator()(TreeNodeExp* a, TreeNodeExp* b) const;
 	};
+
 	virtual void build(ALEState & state);
 
 	virtual void update_tree();

@@ -23,10 +23,25 @@ UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
 		SearchTree(rom_settings, settings, actions, _env) {
 
+	// default = -1 : unlimited
 	uct_max_simulations = settings.getInt("uct_monte_carlo_steps", true);
+	// default = 300: should be rescaled to the number of frames available to the agent?
 	uct_search_depth = settings.getInt("uct_search_depth", true);
+	// default = 0.1: the UCT bias. Don't wanna dig deep into this...
 	uct_exploration_constant = settings.getFloat("uct_exploration_constant",
 			true);
+	// default = 1: Number of UCT monte carlo rollout per each node evaluation
+	uct_num_monte_carlo = settings.getFloat("uct_num_monte_carlo", true);
+
+	// If true then artificially bias the rollout policy.
+	// All actions not in minimal action set are mapped to a single randomly chosen action.
+	uct_biased_rollout = settings.getInt("uct_biased_rollout", false);
+	if (uct_biased_rollout) {
+		ActionVect min = rom_settings->getMinimalActionSet();
+		biased_action = choice(&min);
+		printf("uct_biased_rollout: %d actions mapped to %s\n",
+		PLAYER_A_MAX - min.size(), action_to_string(biased_action).c_str());
+	}
 }
 
 /* *********************************************************************
@@ -70,19 +85,26 @@ void UCTSearchTree::update_tree(void) {
 		// If max_sim_steps_per_frame is set, stop once we reach a certain number
 		//  of frames
 		if (max_sim_steps_per_frame != -1
-				&& simulation_steps >= max_sim_steps_per_frame)
+				&& simulation_steps >= max_sim_steps_per_frame) {
+			printf("max_sim_steps_per_frame\n");
 			break;
+		}
 		//else if (num_simulations_per_frame != -1 &&
 		//	 ((UCTTreeNode*)p_root)->visit_count >= num_simulations_per_frame)
 		//	break;
 		else if (uct_max_simulations != -1
-				&& ((UCTTreeNode*) p_root)->visit_count >= uct_max_simulations)
+				&& ((UCTTreeNode*) p_root)->visit_count
+						>= uct_max_simulations) {
+			printf("uct_max_simulations\n");
 			break;
+		}
 		// Handle the case where we cannot simulate further but have not reached the
 		//  maximum number of simulation steps per frame (thanks to Erik Talvitie
 		//  for this one)
-		else if (num_simulations_per_frame == -1 && new_sim_steps == 0)
+		else if (num_simulations_per_frame == -1 && new_sim_steps == 0) {
+			printf("new_sim_steps\n");
 			break;
+		}
 	}
 	std::cout << "Simulation steps: " << simulation_steps << std::endl;
 	std::cout << "Visits to root: " << ((UCTTreeNode*) p_root)->visit_count
@@ -173,12 +195,13 @@ int UCTSearchTree::single_uct_iteration(void) {
 
 				// TODO: YJ: insert DASA/DASP here.
 				vector<Action> usefulActions;
-				vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+				vector<bool> isUsefulAction(available_actions.size(), true);
 				if (action_sequence_detection) {
 					if (!trajectory.empty()) {
 						vector<Action> p = getPreviousActions(node,
 								dasd_sequence_length);
-						vector<bool> isUsefulAction = dasd->getEffectiveActions(p);
+						vector<bool> isUsefulAction = dasd->getEffectiveActions(
+								p);
 					}
 				}
 				for (int a = 0; a < isUsefulAction.size(); ++a) {
@@ -207,7 +230,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 			// Now visit (at random) one of the children of that node 
 			// TODO: YJ: insert DASA/DASP here.
 			vector<Action> usefulActions;
-			vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+			vector<bool> isUsefulAction(available_actions.size(), true);
 			if (action_sequence_detection) {
 				if (!trajectory.empty()) {
 					vector<Action> p = getPreviousActions(node,
@@ -247,7 +270,8 @@ int UCTSearchTree::single_uct_iteration(void) {
 		}
 	}
 
-	int sim_steps = 0;
+	int sim_steps = node->num_simulated_steps;
+//	printf("sim_steps=%d\n", node->num_simulated_steps);
 
 	// Now that we have a leaf - perform Monte Carlo sampling from it
 	float mc_return;
@@ -257,10 +281,20 @@ int UCTSearchTree::single_uct_iteration(void) {
 
 	int mc_steps = uct_search_depth - node_depth;
 
-	sim_steps += do_monte_carlo((UCTTreeNode*) node, mc_steps, mc_return);
+	float average_return = 0.0;
+	if (uct_num_monte_carlo == 0) {
+		average_return = node->accumulated_reward;
+	} else {
+		for (int i = 0; i < uct_num_monte_carlo; ++i) {
+			sim_steps += do_monte_carlo((UCTTreeNode*) node, mc_steps,
+					mc_return);
+			average_return += mc_return;
+		}
+		average_return /= (float) uct_num_monte_carlo;
+	}
 
 	// Propagate the return back up
-	update_values((UCTTreeNode*) node, mc_return);
+	update_values((UCTTreeNode*) node, average_return);
 
 	return sim_steps;
 }
@@ -382,8 +416,7 @@ int UCTSearchTree::get_most_visited_branch(UCTTreeNode * node) {
 void UCTSearchTree::expand_node(TreeNode* node) {
 	m_expanded_nodes++;
 
-	// TODO:
-//	vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+	// TODO:;
 //	if (action_sequence_detection) {
 //		if (!trajectory.empty()) {
 //			vector<Action> p = getPreviousActions(node,
@@ -422,19 +455,12 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 	int steps = 0;
 	vector<Action> previousActions;
 	if (action_sequence_detection) {
-		previousActions = getPreviousActions(start_node,
-				dasd_sequence_length);
+		previousActions = getPreviousActions(start_node, dasd_sequence_length);
 	}
 
 	for (int i = 0; i < sim_steps; ++i) {
-//		printf("prev acts:");
-//		for (int i = 0; i < previousActions.size(); ++i) {
-//			printf("%s ", action_to_string(previousActions[i]).c_str());
-//		}
-//		printf("\n");
-
 		vector<Action> usefulActions;
-		vector<bool> isUsefulAction(PLAYER_A_MAX, true);
+		vector<bool> isUsefulAction(available_actions.size(), true);
 		if (action_sequence_detection) {
 			if (!trajectory.empty()) {
 				isUsefulAction = dasd->getEffectiveActions(previousActions);
@@ -443,6 +469,16 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 		for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {
 			if (isUsefulAction[a]) {
 				usefulActions.push_back((Action) a);
+			}
+		}
+
+		if (uct_biased_rollout) {
+			vector<Action> minimal = m_rom_settings->getMinimalActionSet();
+			for (unsigned int a = 0; a < usefulActions.size(); ++a) {
+				if (find(minimal.begin(), minimal.end(), usefulActions[a])
+						!= minimal.end()) {
+					usefulActions[a] = biased_action;
+				}
 			}
 		}
 
@@ -485,3 +521,4 @@ void UCTSearchTree::update_values(UCTTreeNode* node, return_t mc_return) {
 		update_values((UCTTreeNode*) node->p_parent,
 				total_return * discount_factor);
 }
+

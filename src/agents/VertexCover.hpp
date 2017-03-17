@@ -17,6 +17,7 @@ class VertexCover {
 	std::vector<std::vector<bool>> adj; // Pointer to an array containing adjacency lists
 	std::vector<bool> marked; // Marked vertex is forced to be in the cover.
 public:
+	VertexCover(); // Constructor
 	VertexCover(int V); // Constructor
 	void addEdge(int v, int w); // function to add an edge to graph
 	void addNode(int v);

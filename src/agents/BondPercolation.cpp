@@ -223,6 +223,8 @@ int BondPercolation::expand_node(TreeNode* curr_node, int action) {
 					TreeNodeExp* c = new TreeNodeExp(child, rand(), i);
 					m_q_percolation->push(c);
 				}
+			} else {
+				m_pruned_nodes++;
 			}
 		}
 
@@ -523,4 +525,36 @@ void BondPercolation::print_frame_data(int frame_number, float elapsed,
 	output << ",emulation_time=" << m_emulation_time;
 	m_rom_settings->print(output);
 	output << std::endl;
+}
+
+
+/**
+ * If node b should be prioritized, then return true.
+ *
+ */
+bool BondPercolation::BondIPPrioirty::operator ()(TreeNodeExp* a,
+		TreeNodeExp* b) const {
+	if (a->priority > b->priority)
+		return true;
+	else
+		return false;
+}
+
+
+bool BondPercolation::DepthPriority::operator()(TreeNodeExp* a,
+		TreeNodeExp* b) const {
+	if (a->node->depth() > b->node->depth()) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool BondPercolation::NoveltyPriority::operator()(TreeNodeExp* a,
+		TreeNodeExp* b) const {
+	if (a->node->novelty > b->node->novelty) {
+		return true;
+	} else {
+		return false;
+	}
 }

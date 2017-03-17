@@ -8,6 +8,10 @@
 #include "VertexCover.hpp"
 #include "Constants.h"
 
+
+VertexCover::VertexCover() {
+}
+
 VertexCover::VertexCover(int V) {
 	this->V = V;
 	adj.resize(V);

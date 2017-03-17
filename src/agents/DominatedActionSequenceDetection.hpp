@@ -11,6 +11,7 @@
 #include "Settings.hxx"
 #include "Constants.h"
 #include "VertexCover.hpp"
+#include "../ale_interface.hpp"
 //#include "SearchTree.hpp"
 
 class SearchTree;
@@ -18,7 +19,7 @@ class TreeNode;
 
 class DominatedActionSequenceDetection {
 public:
-	DominatedActionSequenceDetection(Settings & settings);
+	DominatedActionSequenceDetection(Settings & settings, StellaEnvironment* _env);
 	virtual ~DominatedActionSequenceDetection();
 
 	void learnDominatedActionSequences(SearchTree* tree, int seqLength);
@@ -55,7 +56,7 @@ private:
 	/**
 	 * Dominated Action Sequence Avoidance
 	 */
-	std::vector<bool> getWeightedProbableActions(
+	std::vector<bool> getDASAActionSet(
 			std::vector<Action> previousActions);
 	std::vector<double> getQvaluesOfNextActions(
 			std::vector<Action> previousActions);
@@ -65,6 +66,8 @@ private:
 
 	double sigmoid(double x, double gain);
 
+	StellaEnvironment* m_env;
+	int junk_decision_frame;
 	bool isDASA; // True if DASA, False if DASP
 	int action_length;
 	double discount_factor;
@@ -81,7 +84,7 @@ private:
 //	std::vector<double> qvalues_by_action_sequence; // length = 2
 	std::vector<double> probabilty_by_action;
 
-	std::vector<VertexCover*> dominance_graph;
+	std::vector<VertexCover> dominance_graph;
 
 	bool permutate_action;
 	std::vector<Action> action_permutation;
