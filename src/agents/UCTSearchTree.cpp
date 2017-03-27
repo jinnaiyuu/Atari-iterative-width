@@ -38,7 +38,11 @@ UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 	uct_biased_rollout = settings.getInt("uct_biased_rollout", false);
 	if (uct_biased_rollout) {
 		ActionVect min = rom_settings->getMinimalActionSet();
-		biased_action = choice(&min);
+		if (uct_biased_rollout == 2) {
+			biased_action = PLAYER_A_NOOP;
+		} else {
+			biased_action = choice(&min);
+		}
 		printf("uct_biased_rollout: %d actions mapped to %s\n",
 		PLAYER_A_MAX - min.size(), action_to_string(biased_action).c_str());
 	}
@@ -86,7 +90,9 @@ void UCTSearchTree::update_tree(void) {
 		//  of frames
 		if (max_sim_steps_per_frame != -1
 				&& simulation_steps >= max_sim_steps_per_frame) {
-			printf("max_sim_steps_per_frame\n");
+			printf(
+					"break by max_sim_steps_per_frame: %d simulation_steps >= %d\n",
+					simulation_steps, max_sim_steps_per_frame);
 			break;
 		}
 		//else if (num_simulations_per_frame != -1 &&
@@ -95,14 +101,15 @@ void UCTSearchTree::update_tree(void) {
 		else if (uct_max_simulations != -1
 				&& ((UCTTreeNode*) p_root)->visit_count
 						>= uct_max_simulations) {
-			printf("uct_max_simulations\n");
+			printf("break by uct_max_simulations: %d >= %d \n",
+					((UCTTreeNode*) p_root)->visit_count, uct_max_simulations);
 			break;
 		}
 		// Handle the case where we cannot simulate further but have not reached the
 		//  maximum number of simulation steps per frame (thanks to Erik Talvitie
 		//  for this one)
 		else if (num_simulations_per_frame == -1 && new_sim_steps == 0) {
-			printf("new_sim_steps\n");
+			printf("new_sim_steps == 0\n");
 			break;
 		}
 	}
@@ -270,7 +277,11 @@ int UCTSearchTree::single_uct_iteration(void) {
 		}
 	}
 
-	int sim_steps = node->num_simulated_steps;
+//	int sim_steps = node->num_simulated_steps;
+//	assert(
+//			sim_steps != sim_steps_per_node
+//					&& [&sim_steps] {printf("simsteps=%d\n", sim_steps); return true;});
+	int sim_steps = 0;
 //	printf("sim_steps=%d\n", node->num_simulated_steps);
 
 	// Now that we have a leaf - perform Monte Carlo sampling from it
@@ -449,7 +460,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 	// TODO: YJ: Rollout is run here. RANDOM should take into account of DASP/DASA.
 	// Return the number of simulated steps (less than num_steps 
 	//  when we reach a terminal state)
-	assert(num_steps % sim_steps_per_node == 0);
+//	assert(num_steps % sim_steps_per_node == 0);
 	int sim_steps = num_steps / sim_steps_per_node;
 
 	int steps = 0;

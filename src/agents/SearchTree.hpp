@@ -98,7 +98,9 @@ public:
 	int simulate_game(ALEState & state, Action act, int num_steps,
 			return_t &traj_return, bool &game_ended, bool discount_return =
 					false, bool save_state = true);
-
+	int simulate_game_random(ALEState & state, ActionVect&action_set, int num_steps,
+			return_t &traj_return, bool &game_ended, bool discount_return =
+					false, bool save_state = true);
 	/** Normalizes a reward using the first non-zero reward's magnitude */
 	return_t normalize(reward_t reward);
 	virtual unsigned max_depth() {
@@ -159,7 +161,7 @@ protected:
 	 *  also sets the node's duplicate flag to true in that case. */
 	bool test_duplicate(TreeNode * node);
 
-	std::vector<bool> getUsefulActions(vector<Action> previousActions);
+//	std::vector<bool> getUsefulActions(vector<Action> previousActions);
 	std::vector<Action> getPreviousActions(TreeNode* node, int seqLength);
 
 
