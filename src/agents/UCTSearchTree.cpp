@@ -36,15 +36,24 @@ UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 	// If true then artificially bias the rollout policy.
 	// All actions not in minimal action set are mapped to a single randomly chosen action.
 	uct_biased_rollout = settings.getInt("uct_biased_rollout", false);
-	if (uct_biased_rollout) {
+	if (uct_biased_rollout > 0) {
 		ActionVect min = rom_settings->getMinimalActionSet();
 		if (uct_biased_rollout == 2) {
 			biased_action = PLAYER_A_NOOP;
-		} else {
+		} else if (uct_biased_rollout == 3) {
+			biased_action = (Action) PLAYER_A_MAX;
+		} else if (uct_biased_rollout == 1){
 			biased_action = choice(&min);
+		} else {
+			assert(false && "uct_biased_rollout wrong value\n");
 		}
-		printf("uct_biased_rollout: %d actions mapped to %s\n",
-		PLAYER_A_MAX - min.size(), action_to_string(biased_action).c_str());
+		if (biased_action == PLAYER_A_MAX) {
+			printf("uct_biased_rollout: %d actions mapped removed\n",
+			PLAYER_A_MAX - min.size());
+		} else {
+			printf("uct_biased_rollout: %d actions mapped to %s\n",
+			PLAYER_A_MAX - min.size(), action_to_string(biased_action).c_str());
+		}
 	}
 }
 
@@ -117,6 +126,8 @@ void UCTSearchTree::update_tree(void) {
 	std::cout << "Visits to root: " << ((UCTTreeNode*) p_root)->visit_count
 			<< std::endl;
 	total_simulation_steps += simulation_steps;
+
+//	print_tree();
 }
 
 void UCTSearchTree::print_path(TreeNode * node, int a) {
@@ -199,25 +210,9 @@ int UCTSearchTree::single_uct_iteration(void) {
 			if (unvisited_child != -1) {
 				zero_count_leaf = true;
 				node = node->v_children[unvisited_child];
-
-				// TODO: YJ: insert DASA/DASP here.
-				vector<Action> usefulActions;
-				vector<bool> isUsefulAction(available_actions.size(), true);
-				if (action_sequence_detection) {
-					if (!trajectory.empty()) {
-						vector<Action> p = getPreviousActions(node,
-								dasd_sequence_length);
-						vector<bool> isUsefulAction = dasd->getEffectiveActions(
-								p);
-					}
-				}
-				for (int a = 0; a < isUsefulAction.size(); ++a) {
-					if (isUsefulAction[a]) {
-						usefulActions.push_back((Action) a);
-					}
-				}
+				leaf_choice = node->act;
 //				printf("189: %d\n", usefulActions.size());
-				leaf_choice = choice(&usefulActions);
+//				leaf_choice = choice(&usefulActions);
 
 				assert(node->is_leaf());
 				break;
@@ -228,30 +223,14 @@ int UCTSearchTree::single_uct_iteration(void) {
 			}
 		}
 
-		// If this is not an unvisited child, then we should expand the node 
-		//  so that it isn't a leaf anymore
+// If this is not an unvisited child, then we should expand the node
+//  so that it isn't a leaf anymore
 		if (!zero_count_leaf) {
 			expand_node(node);
 
-			// TODO: YJ: Check what it is doing.
-			// Now visit (at random) one of the children of that node 
-			// TODO: YJ: insert DASA/DASP here.
-			vector<Action> usefulActions;
-			vector<bool> isUsefulAction(available_actions.size(), true);
-			if (action_sequence_detection) {
-				if (!trajectory.empty()) {
-					vector<Action> p = getPreviousActions(node,
-							dasd_sequence_length);
-					vector<bool> isUsefulAction = dasd->getEffectiveActions(p);
-				}
-			}
-			for (int a = 0; a < isUsefulAction.size(); ++a) {
-				if (isUsefulAction[a]) {
-					usefulActions.push_back((Action) a);
-				}
-			}
+			vector<Action> usefulActions = getEffectiveActionsVector(node);
 
-//			printf("223: %d\n", usefulActions.size());
+			//			printf("223: %d\n", usefulActions.size());
 			int c = choice(&usefulActions);
 //			int c = rand_range(0, available_actions.size() - 1);
 			node = node->v_children[c];
@@ -259,17 +238,20 @@ int UCTSearchTree::single_uct_iteration(void) {
 			leaf_choice = available_actions[c];
 		}
 
-		// We should be picking a node here that has never been simulated
-		assert(!node->is_initialized());
+// We should be picking a node here that has never been simulated
+//		assert(!node->is_initialized());
 
 		node->m_depth = node->p_parent->m_depth + 1;
 		if (node->depth() > m_max_depth)
 			m_max_depth = node->depth();
 
-		node->init(this, leaf_choice, sim_steps_per_node);
+		if (!node->initialized) {
+			printf("uninitialized\n");
+			node->init(this, leaf_choice, sim_steps_per_node);
+		}
 
-		// Before declaring ourselves done, ensure that this is not a duplicate
-		//  of another action
+// Before declaring ourselves done, ensure that this is not a duplicate
+//  of another action
 		if (ignore_duplicates) {
 			done = !test_duplicate(node);
 		} else {
@@ -284,7 +266,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 	int sim_steps = 0;
 //	printf("sim_steps=%d\n", node->num_simulated_steps);
 
-	// Now that we have a leaf - perform Monte Carlo sampling from it
+// Now that we have a leaf - perform Monte Carlo sampling from it
 	float mc_return;
 
 	int node_depth = node->state.getFrameNumber()
@@ -319,11 +301,14 @@ int UCTSearchTree::get_child_with_count_zero(const TreeNode* node) const {
 	//  making unvisited_children a class member variable
 	IntVect unvisited_children;
 
-	for (size_t c = 0; c < node->v_children.size(); c++) {
-		UCTTreeNode * child = (UCTTreeNode*) node->v_children[c];
+	vector<Action> usefulActions = getEffectiveActionsVector(node);
+
+	for (size_t c = 0; c < usefulActions.size(); c++) {
+		int act = (int) usefulActions[c];
+		UCTTreeNode * child = (UCTTreeNode*) node->v_children[act];
 
 		if (!child->is_duplicate() && child->visit_count == 0)
-			unvisited_children.push_back(c);
+			unvisited_children.push_back(act);
 	}
 
 	if (unvisited_children.empty())
@@ -342,17 +327,24 @@ int UCTSearchTree::get_best_branch(UCTTreeNode* node, bool add_uct_bias) {
 
 	assert(!node->v_children.empty());
 
-	// We want to tie-break actions with the same value 
+	vector<Action> usefulAction = getEffectiveActionsVector(node);
+
+	// We want to tie-break actions with the same value
 	vector<int> ties;
 
 	for (size_t c = 0; c < node->v_children.size(); c++) {
 		UCTTreeNode * child = (UCTTreeNode*) node->v_children[c];
+		if (find(usefulAction.begin(), usefulAction.end(), child->act)
+				== usefulAction.end()) {
+			printf("PRUNED action %s\n", action_to_string(child->act).c_str());
+			continue;
+		}
 
-		// Skip unvisited children (they should be selected explicitly)
+// Skip unvisited children (they should be selected explicitly)
 		if (!child->is_initialized() || child->visit_count == 0)
 			continue;
 
-		// Compute this child's value, adding the UCT bonus if required
+// Compute this child's value, adding the UCT bonus if required
 		float v = child->sum_returns / child->visit_count;
 
 		if (add_uct_bias) {
@@ -364,12 +356,12 @@ int UCTSearchTree::get_best_branch(UCTTreeNode* node, bool add_uct_bias) {
 			v = v + bias;
 		}
 
-		// Set the return to the computed value -- note! This is only used
-		//  for computation purposes; branch_return is not guaranteed to be
-		//  valid
+// Set the return to the computed value -- note! This is only used
+//  for computation purposes; branch_return is not guaranteed to be
+//  valid
 		child->branch_return = v;
 
-		// Update the maximum 
+// Update the maximum
 		if (best_branch == -1 || v > highest_value) {
 			best_branch = c;
 			highest_value = v;
@@ -377,7 +369,7 @@ int UCTSearchTree::get_best_branch(UCTTreeNode* node, bool add_uct_bias) {
 			ties.clear();
 			ties.push_back(best_branch);
 		}
-		// If tied, add to the list of ties
+// If tied, add to the list of ties
 		else if (v == highest_value)
 			ties.push_back(c);
 	}
@@ -398,7 +390,7 @@ int UCTSearchTree::get_most_visited_branch(UCTTreeNode * node) {
 	IntVect ties;
 
 	for (size_t c = 0; c < node->v_children.size(); c++) {
-		// Ignore unitialized children (though they also should have 0 visits)
+// Ignore unitialized children (though they also should have 0 visits)
 		UCTTreeNode * child = ((UCTTreeNode*) node->v_children[c]);
 
 		if (child->is_duplicate() || !child->is_initialized())
@@ -406,7 +398,7 @@ int UCTSearchTree::get_most_visited_branch(UCTTreeNode * node) {
 
 		child->branch_return = child->sum_returns / child->visit_count;
 
-		// Find the maximum visit child
+// Find the maximum visit child
 		if (bestBranch == -1 || child->visit_count > maxVisits) {
 			bestBranch = c;
 			maxVisits = child->visit_count;
@@ -436,11 +428,14 @@ void UCTSearchTree::expand_node(TreeNode* node) {
 //		}
 //	}
 
-	// YJ: This function does not actually "expand" the node.
-	//     It does not run emulation to generate the successor state.
-	//     Rather it places TreeNode to put into v_children.
+// YJ: This function does not actually "expand" the node.
+//     It does not run emulation to generate the successor state.
+//     Rather it places TreeNode to put into v_children.
 	for (size_t i = 0; i < available_actions.size(); i++) {
 		UCTTreeNode *child = new UCTTreeNode(node, node->state);
+		// Should we simulate after or before evaluation?
+		child->init(this, available_actions[i], sim_steps_per_node);
+
 		node->v_children.push_back(child);
 	}
 }
@@ -458,7 +453,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 	bool is_terminal;
 
 	// TODO: YJ: Rollout is run here. RANDOM should take into account of DASP/DASA.
-	// Return the number of simulated steps (less than num_steps 
+	// Return the number of simulated steps (less than num_steps
 	//  when we reach a terminal state)
 //	assert(num_steps % sim_steps_per_node == 0);
 	int sim_steps = num_steps / sim_steps_per_node;
@@ -466,29 +461,38 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 	int steps = 0;
 	vector<Action> previousActions;
 	if (action_sequence_detection) {
-		previousActions = getPreviousActions(start_node, dasd_sequence_length);
+		if (!trajectory.size() > dasd_sequence_length) {
+			previousActions = getPreviousActions(start_node,
+					dasd_sequence_length);
+		}
 	}
 
 	for (int i = 0; i < sim_steps; ++i) {
 		vector<Action> usefulActions;
-		vector<bool> isUsefulAction(available_actions.size(), true);
 		if (action_sequence_detection) {
-			if (!trajectory.empty()) {
-				isUsefulAction = dasd->getEffectiveActions(previousActions);
+			// TODO: enable action_sequence_detection for restricted action.
+			vector<bool> isUsefulAction = dasd->getEffectiveActions(
+					previousActions,
+					this->trajectory.size() * sim_steps_per_node);
+			for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {
+				if (isUsefulAction[a]) {
+					usefulActions.push_back((Action) a);
+				}
 			}
-		}
-		for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {
-			if (isUsefulAction[a]) {
-				usefulActions.push_back((Action) a);
-			}
+		} else {
+			usefulActions = available_actions;
 		}
 
-		if (uct_biased_rollout) {
+		if (uct_biased_rollout > 0) {
 			vector<Action> minimal = m_rom_settings->getMinimalActionSet();
 			for (unsigned int a = 0; a < usefulActions.size(); ++a) {
 				if (find(minimal.begin(), minimal.end(), usefulActions[a])
 						!= minimal.end()) {
-					usefulActions[a] = biased_action;
+					if (biased_action == PLAYER_A_MAX) {
+						usefulActions.erase(usefulActions.begin() + a);
+					} else {
+						usefulActions[a] = biased_action;
+					}
 				}
 			}
 		}
@@ -497,7 +501,9 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 		steps += simulate_game(start_node->state, (Action) action,
 				sim_steps_per_node, mc_return, is_terminal, true, false);
 		if (action_sequence_detection) {
-			previousActions.erase(previousActions.begin());
+			if (!previousActions.empty()) {
+				previousActions.erase(previousActions.begin());
+			}
 			previousActions.push_back(action);
 		}
 	}
@@ -519,17 +525,61 @@ void UCTSearchTree::update_values(UCTTreeNode* node, return_t mc_return) {
 	// Update the visit count
 	node->visit_count++;
 
-	// Update our estimate of the return at this node as the sum of the 
+	// Update our estimate of the return at this node as the sum of the
 	//  Monte-Carlo return (including expanded child nodes below) and this
 	//  node's immediate reward
 	return_t total_return = discount_factor * mc_return + node->node_reward;
 
 	node->sum_returns += total_return;
 
-	// Recursively update the parent (this can also be done in a loop at the 
+	// Recursively update the parent (this can also be done in a loop at the
 	//  cost of legibility)
 	if (node->p_parent != NULL)
 		update_values((UCTTreeNode*) node->p_parent,
 				total_return * discount_factor);
 }
 
+vector<Action> UCTSearchTree::getEffectiveActionsVector(
+		const TreeNode* node) const {
+	vector<Action> usefulActions;
+	if (action_sequence_detection && trajectory.size() > dasd_sequence_length) {
+		vector<Action> p = getPreviousActions(node, dasd_sequence_length);
+		vector<bool> isUsefulAction = dasd->getEffectiveActions(p,
+				this->trajectory.size() * sim_steps_per_node);
+		for (unsigned int a = 0; a < isUsefulAction.size(); ++a) {
+			if (isUsefulAction[a]) {
+				usefulActions.push_back((Action) a);
+			}
+		}
+	} else {
+		usefulActions = available_actions;
+	}
+	return usefulActions;
+}
+
+void UCTSearchTree::print_tree() {
+	printf("*** TREE ***\n");
+	print_node((UCTTreeNode*) p_root);
+
+}
+
+void UCTSearchTree::print_node(UCTTreeNode* node) {
+	if (node->visit_count == 0) {
+		return;
+	}
+
+	int depth = node->depth();
+	for (int i = 0; i < depth; ++i) {
+		if (i == depth - 1) {
+			printf("|-");
+		} else {
+			printf("  ");
+		}
+	}
+	printf("%d\n", node->visit_count);
+	if (node->v_children.size() > 0) {
+		for (int i = 0; i < node->v_children.size(); ++i) {
+			print_node((UCTTreeNode*) node->v_children[i]);
+		}
+	}
+}

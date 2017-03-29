@@ -67,9 +67,6 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 				settings.getInt("longest_junk_sequence", false),
 				settings.getInt("dasd_sequence_length", false));
 
-//		decision_frame_function = settings.getInt("decision_frame_function",
-//				false);
-
 //		if (junk_resurrection_frame < 0) {
 //			junk_resurrection_frame = 20;
 //		}
@@ -482,12 +479,12 @@ void SearchTree::getJunkActionSequence(int frame_number) {
 //	}
 //}
 
-std::vector<Action> SearchTree::getPreviousActions(TreeNode* node,
-		int seqLength) {
+std::vector<Action> SearchTree::getPreviousActions(const TreeNode* node,
+		int seqLength) const {
 	std::vector<Action> previousActions;
 	previousActions.resize(seqLength);
 
-	TreeNode* curr = node;
+	TreeNode* curr = (TreeNode*) node;
 	int currLength = seqLength;
 
 	while (currLength > 0) {

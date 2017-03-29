@@ -98,9 +98,9 @@ public:
 	int simulate_game(ALEState & state, Action act, int num_steps,
 			return_t &traj_return, bool &game_ended, bool discount_return =
 					false, bool save_state = true);
-	int simulate_game_random(ALEState & state, ActionVect&action_set, int num_steps,
-			return_t &traj_return, bool &game_ended, bool discount_return =
-					false, bool save_state = true);
+	int simulate_game_random(ALEState & state, ActionVect&action_set,
+			int num_steps, return_t &traj_return, bool &game_ended,
+			bool discount_return = false, bool save_state = true);
 	/** Normalizes a reward using the first non-zero reward's magnitude */
 	return_t normalize(reward_t reward);
 	virtual unsigned max_depth() {
@@ -149,6 +149,7 @@ public:
 
 	int getDetectedUsedActionsSize();
 
+//	vector<Action> getAction
 
 protected:
 
@@ -162,8 +163,8 @@ protected:
 	bool test_duplicate(TreeNode * node);
 
 //	std::vector<bool> getUsefulActions(vector<Action> previousActions);
-	std::vector<Action> getPreviousActions(TreeNode* node, int seqLength);
-
+	std::vector<Action> getPreviousActions(const TreeNode* node,
+			int seqLength) const;
 
 protected:
 
@@ -215,7 +216,7 @@ protected:
 
 	// Action Sequence Detection
 	bool action_sequence_detection; // true if it applies ASD.
-	int junk_decision_frame;
+//	int junk_decision_frame;
 	int junk_resurrection_frame;
 	int dasd_sequence_length;
 	int decision_frame_function;

@@ -336,9 +336,10 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 		if (!trajectory.empty()) {
 			vector<Action> p = getPreviousActions(curr_node,
 					dasd_sequence_length - 1);
-//			if (longest_junk_sequence - 1 > 0) {
-			isUsefulAction = dasd->getEffectiveActions(p);
-//			}
+			isUsefulAction = dasd->getEffectiveActions(p,
+					trajectory.size() * sim_steps_per_node);
+
+
 		}
 	}
 

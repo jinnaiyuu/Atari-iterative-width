@@ -24,7 +24,7 @@ public:
 
 	void learnDominatedActionSequences(SearchTree* tree, int seqLength);
 
-	std::vector<bool> getEffectiveActions(std::vector<Action> previousActions);
+	std::vector<bool> getEffectiveActions(std::vector<Action> previousActions, int current_frame);
 	int getDetectedUsedActionsSize();
 
 private:

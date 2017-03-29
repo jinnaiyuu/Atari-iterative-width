@@ -17,7 +17,7 @@ DominatedActionSequenceDetection::DominatedActionSequenceDetection(
 	junk_decision_frame = settings.getInt("junk_decision_frame", false);
 
 	if (junk_decision_frame < 0) {
-		junk_decision_frame = 12; // 5 seconds in game
+		junk_decision_frame = 300; // 5 seconds in game
 	}
 
 	isDASA = settings.getBool("probablistic_action_selection", false)
@@ -94,8 +94,8 @@ int DominatedActionSequenceDetection::getDetectedUsedActionsSize() {
 // Return the list of actions which is available given the previous action sequences
 //
 std::vector<bool> DominatedActionSequenceDetection::getEffectiveActions(
-		std::vector<Action> previousActions) {
-	if (junk_decision_frame > m_env->getFrameNumber()) {
+		std::vector<Action> previousActions, int current_frame) {
+	if (junk_decision_frame > current_frame) {
 		return vector<bool>(PLAYER_A_MAX, true);
 	}
 
@@ -122,7 +122,14 @@ std::vector<bool> DominatedActionSequenceDetection::getEffectiveActions(
 		}
 
 	}
-
+//	for (int j = 0; j < available.size(); ++j) {
+//		if (available[j]) {
+//			printf("o");
+//		} else {
+//			printf("x");
+//		}
+//	}
+//	printf("\n");
 	return available;
 }
 
@@ -358,14 +365,15 @@ void DominatedActionSequenceDetection::getUsedSequenceList(TreeNode* node,
 	} else {
 
 //	printf("\n");
+		// TODO: this is wrong: we are adding nulls!
 		for (int i = 0; i < size; ++i) {
-			if (nodeList[i] == nullptr) {
+			if (nodeList[i] == nullptr || nodeList[i]->is_terminal) {
 				continue;
 			}
 
 			bool isDuplicate = false;
 			for (int j = 0; j < i; ++j) {
-				if (nodeList[j] == nullptr) {
+				if (nodeList[j] == nullptr || nodeList[i]->is_terminal) {
 					continue;
 				}
 

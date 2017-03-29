@@ -97,7 +97,9 @@ void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 			if (!trajectory.empty()) {
 				vector<Action> p = getPreviousActions(curr_node,
 						dasd_sequence_length - 1);
-				isUsefulAction = dasd->getEffectiveActions(p);
+				isUsefulAction = dasd->getEffectiveActions(p,
+						trajectory.size() * sim_steps_per_node);
+
 			}
 		}
 
