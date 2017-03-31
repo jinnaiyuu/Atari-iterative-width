@@ -9,6 +9,8 @@ MODULE_OBJS := \
 	src/agents/SimpleBanditAgent.o \
 	src/agents/SearchAgent.o \
 	src/agents/VertexCover.o \
+	src/agents/DominatedActionSequenceAvoidance.o \
+	src/agents/DominatedActionSequencePruning.o \
 	src/agents/DominatedActionSequenceDetection.o \
 	src/agents/SearchTree.o \
 	src/agents/TreeNode.o \

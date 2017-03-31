@@ -94,8 +94,13 @@ protected:
 	/** For debugging purposes */
 	void print_path(TreeNode * node, int c);
 
+	/** Print the structure of the tree */
+	void print_tree();
+	void print_node(UCTTreeNode*);
 	int uct_biased_rollout;
 	Action biased_action;
+
+	std::vector<Action> getEffectiveActionsVector(const TreeNode* node) const;
 
 protected:
 	int uct_max_simulations;

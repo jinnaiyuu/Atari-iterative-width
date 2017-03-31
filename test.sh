@@ -9,7 +9,12 @@
     -random_seed 0 \
     -player_agent search_agent \
     -search_method uct \
-    -restricted_action_set true \
-    ./roms/alien.bin
+    -uct_search_depth 30 \
+    -action_sequence_detection true \
+    -dasa 0 \
+    -longest_junk_sequence 1 \
+    ./roms/up_n_down.bin
+#    -search_method uct \
+#    ./roms/up_n_down.bin
 
 exit 

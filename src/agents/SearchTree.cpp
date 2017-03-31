@@ -20,6 +20,8 @@
 #include <chrono>
 
 #include "DominatedActionSequenceDetection.hpp"
+#include "DominatedActionSequencePruning.hpp"
+#include "DominatedActionSequenceAvoidance.hpp"
 
 /* *********************************************************************
  Constructor
@@ -62,7 +64,14 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	if (action_sequence_detection) {
 		printf("RUNNING ACTION SEQUENCE DETECTION\n");
-		dasd = new DominatedActionSequenceDetection(settings, _env);
+		bool isDASA = settings.getBool("dasa", false)
+				|| settings.getBool("probablistic_action_selection", false);
+		if (isDASA) {
+			dasd = new DominatedActionSequenceAvoidance(settings, _env);
+		} else {
+			dasd = new DominatedActionSequencePruning(settings, _env);
+		}
+
 		dasd_sequence_length = max(
 				settings.getInt("longest_junk_sequence", false),
 				settings.getInt("dasd_sequence_length", false));

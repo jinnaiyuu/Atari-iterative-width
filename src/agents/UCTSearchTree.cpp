@@ -42,7 +42,7 @@ UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 			biased_action = PLAYER_A_NOOP;
 		} else if (uct_biased_rollout == 3) {
 			biased_action = (Action) PLAYER_A_MAX;
-		} else if (uct_biased_rollout == 1){
+		} else if (uct_biased_rollout == 1) {
 			biased_action = choice(&min);
 		} else {
 			assert(false && "uct_biased_rollout wrong value\n");
@@ -230,6 +230,12 @@ int UCTSearchTree::single_uct_iteration(void) {
 
 			vector<Action> usefulActions = getEffectiveActionsVector(node);
 
+//			printf("usefulActions = ");
+//			for (unsigned int a = 0; a < usefulActions.size(); ++a) {
+//				printf("%d ", (int) usefulActions[a]);
+//			}
+//			printf("\n");
+
 			//			printf("223: %d\n", usefulActions.size());
 			int c = choice(&usefulActions);
 //			int c = rand_range(0, available_actions.size() - 1);
@@ -258,6 +264,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 			done = true;
 		}
 	}
+//	printf("leaf_choice=%d\n", leaf_choice);
 
 //	int sim_steps = node->num_simulated_steps;
 //	assert(
@@ -272,6 +279,7 @@ int UCTSearchTree::single_uct_iteration(void) {
 	int node_depth = node->state.getFrameNumber()
 			- p_root->state.getFrameNumber();
 
+	// TODO: Why doesn't it go further than the maximal depth?
 	int mc_steps = uct_search_depth - node_depth;
 
 	float average_return = 0.0;
@@ -336,7 +344,7 @@ int UCTSearchTree::get_best_branch(UCTTreeNode* node, bool add_uct_bias) {
 		UCTTreeNode * child = (UCTTreeNode*) node->v_children[c];
 		if (find(usefulAction.begin(), usefulAction.end(), child->act)
 				== usefulAction.end()) {
-			printf("PRUNED action %s\n", action_to_string(child->act).c_str());
+//			printf("PRUNED action %s\n", action_to_string(child->act).c_str());
 			continue;
 		}
 
@@ -432,10 +440,12 @@ void UCTSearchTree::expand_node(TreeNode* node) {
 //     It does not run emulation to generate the successor state.
 //     Rather it places TreeNode to put into v_children.
 	for (size_t i = 0; i < available_actions.size(); i++) {
-		UCTTreeNode *child = new UCTTreeNode(node, node->state);
 		// Should we simulate after or before evaluation?
-		child->init(this, available_actions[i], sim_steps_per_node);
-
+//		UCTTreeNode *child = new UCTTreeNode(node, node->state);
+//		child->init(this, available_actions[i], sim_steps_per_node);
+		UCTTreeNode * child = new UCTTreeNode(node, node->state,
+				sim_steps_per_node, available_actions[i], this);
+//		printf("child-act = %d\n", (int) child->act);
 		node->v_children.push_back(child);
 	}
 }
