@@ -237,6 +237,10 @@ int UCTSearchTree::single_uct_iteration(void) {
 //			printf("\n");
 
 			//			printf("223: %d\n", usefulActions.size());
+			if (usefulActions.size() == 0) {
+				// TODO: recheck this
+				usefulActions = available_actions;
+			}
 			int c = choice(&usefulActions);
 //			int c = rand_range(0, available_actions.size() - 1);
 			node = node->v_children[c];
@@ -383,9 +387,14 @@ int UCTSearchTree::get_best_branch(UCTTreeNode* node, bool add_uct_bias) {
 	}
 
 	// If we have ties, pick one at random
-	if (ties.size() > 1)
+	if (ties.size() > 1) {
 		best_branch = choice(&ties);
+//		assert(best_branch != -1 && "ties has -1 branch");
+	}
 
+	if (best_branch == -1) {
+		best_branch = rand() % node->v_children.size();
+	}
 	assert(best_branch != -1);
 
 	return best_branch;
@@ -416,6 +425,8 @@ int UCTSearchTree::get_most_visited_branch(UCTTreeNode * node) {
 			ties.push_back(c);
 		}
 	}
+
+	assert(!ties.empty() && "get_most_visited_branch");
 
 	// Return at random one of the max. visit children
 	return choice(&ties);
@@ -507,6 +518,9 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 			}
 		}
 
+		if (usefulActions.size() == 0) {
+			usefulActions = available_actions;
+		}
 		Action action = choice(&usefulActions);
 		steps += simulate_game(start_node->state, (Action) action,
 				sim_steps_per_node, mc_return, is_terminal, true, false);
