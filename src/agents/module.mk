@@ -25,6 +25,14 @@ MODULE_OBJS := \
 	src/agents/SitePercolation.o \
 	src/agents/UniformCostSearch.o
 
+
+MODULE_OBJS += \
+	src/agents/features/Features.o \
+	src/agents/features/RAMBytes.o \
+	src/agents/features/TFBinary.o \
+	src/agents/features/ScreenPixels.o
+	
+
 MODULE_DIRS += \
 	src/agents
 

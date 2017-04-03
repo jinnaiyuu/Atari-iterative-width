@@ -241,8 +241,8 @@ int UCTSearchTree::single_uct_iteration(void) {
 				// TODO: recheck this
 				usefulActions = available_actions;
 			}
-			int c = choice(&usefulActions);
-//			int c = rand_range(0, available_actions.size() - 1);
+//			int c = choice(&usefulActions);
+			int c = rand() % available_actions.size(); // TODO:
 			node = node->v_children[c];
 
 			leaf_choice = available_actions[c];
@@ -250,6 +250,8 @@ int UCTSearchTree::single_uct_iteration(void) {
 
 // We should be picking a node here that has never been simulated
 //		assert(!node->is_initialized());
+		assert(node != nullptr);
+		assert(node->p_parent != nullptr);
 
 		node->m_depth = node->p_parent->m_depth + 1;
 		if (node->depth() > m_max_depth)
@@ -316,11 +318,11 @@ int UCTSearchTree::get_child_with_count_zero(const TreeNode* node) const {
 	vector<Action> usefulActions = getEffectiveActionsVector(node);
 
 	for (size_t c = 0; c < usefulActions.size(); c++) {
-		int act = (int) usefulActions[c];
-		UCTTreeNode * child = (UCTTreeNode*) node->v_children[act];
+//		int act = (int) usefulActions[c];
+		UCTTreeNode * child = (UCTTreeNode*) node->v_children[c];
 
 		if (!child->is_duplicate() && child->visit_count == 0)
-			unvisited_children.push_back(act);
+			unvisited_children.push_back(c);
 	}
 
 	if (unvisited_children.empty())

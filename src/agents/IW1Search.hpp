@@ -2,6 +2,7 @@
 #define __IW_SEARCH_HPP__
 
 #include "SearchTree.hpp"
+#include "features/Features.hpp"
 #include "bit_matrix.hxx"
 #include "../environment/ale_ram.hpp"
 
@@ -60,15 +61,19 @@ protected:
 	virtual void move_to_best_sub_branch();
 
 	ALERAM m_ram;
-	aptk::Bit_Matrix* m_ram_novelty_table;
-	aptk::Bit_Matrix* m_ram_novelty_table_true;
-	aptk::Bit_Matrix* m_ram_novelty_table_false;
-	aptk::Bit_Matrix* m_image_novelty_table;
+	Features* m_novelty_feature;
+	vector<bool> m_novelty_table;
+
+//	aptk::Bit_Matrix* m_ram_novelty_table;
+//	aptk::Bit_Matrix* m_ram_novelty_table_true;
+//	aptk::Bit_Matrix* m_ram_novelty_table_false;
+//	aptk::Bit_Matrix* m_image_novelty_table;
 
 	unsigned m_pruned_nodes;
 	bool m_stop_on_first_reward;
 	unsigned m_reward_horizon;
 	bool m_novelty_boolean_representation;
+	int m_redundant_ram;
 
 };
 

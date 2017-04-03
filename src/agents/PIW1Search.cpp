@@ -3,6 +3,10 @@
 #include <list>
 
 #include "DominatedActionSequenceDetection.hpp"
+// Features
+#include "features/TFBinary.hpp"
+#include "features/RAMBytes.hpp"
+#include "features/ScreenPixels.hpp"
 
 PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -20,21 +24,39 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 	int minus_inf = numeric_limits<int>::min();
 //	printf("minus_inf=%d\n", minus_inf);
 
-	if (m_novelty_boolean_representation) {
-		m_ram_reward_table_true.resize(8 * RAM_SIZE);
-		m_ram_reward_table_false.resize(8 * RAM_SIZE);
-		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+	m_redundant_ram = settings.getInt("iw1_redundant_ram", false);
+
+	// TODO: State feature should definitely be refactored.
+	//       I'm like 3 days before the deadline so forgive me.
+	if (!image_based) {
+		if (m_novelty_boolean_representation) {
+			m_novelty_feature = new TFBinary(_env);
+//			m_ram_reward_table_true.resize(8 * RAM_SIZE);
+//			m_ram_reward_table_false.resize(8 * RAM_SIZE);
+//			m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+//			m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+		} else {
+			if (m_redundant_ram >= 1) {
+				m_novelty_feature = new RAMBytes(_env, m_redundant_ram);
+			} else {
+				m_novelty_feature = new RAMBytes(_env);
+			}
+
+//			if (m_redundant_ram >= 1) {
+//				m_ram_reward_table_byte.resize(
+//						256 * RAM_SIZE * (1 + m_redundant_ram));
+//				m_ram_reward_table_byte.assign(
+//						256 * RAM_SIZE * (1 + m_redundant_ram), minus_inf);
+//			} else {
+//				m_ram_reward_table_byte.resize(256 * RAM_SIZE);
+//				m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+//			}
+		}
 	} else {
-		m_ram_reward_table_byte.resize(256 * RAM_SIZE);
-		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
-
+		m_novelty_feature = new ScreenPixels(_env);
 	}
-
-//	for (unsigned int i = 0; i < 8 * RAM_SIZE; ++i) {
-//		m_ram_reward_table_true[i] = minus_inf;
-//		m_ram_reward_table_false[i] = minus_inf;
-//	}
+	m_novelty_table.resize(m_novelty_feature->getNumberOfFeatures());
+	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), minus_inf);
 
 // TODO: parameterize
 //	ignore_duplicates = true;
@@ -140,7 +162,7 @@ void PIW1Search::update_tree() {
 // std::exit(0);
 }
 
-void PIW1Search::update_novelty_table(const ALERAM& machine_state,
+void PIW1Search::update_novelty_table(ALEState& machine_state,
 		reward_t accumulated_reward) {
 //	for (size_t i = 0; i < machine_state.size(); i++) {
 //		if (m_novelty_boolean_representation) {
@@ -157,51 +179,86 @@ void PIW1Search::update_novelty_table(const ALERAM& machine_state,
 //			m_ram_novelty_table->set(i, machine_state.get(i));
 //		}
 //	}
-	bool updated = false;
+//	bool updated = false;
 
-	if (m_novelty_boolean_representation) {
-
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-			for (int j = 0; j < 8; j++) {
-				bool bit_is_set = (byte & (mask << j)) != 0;
-				if (bit_is_set) {
-					int old_reward = m_ram_reward_table_true[8 * i + j];
-					if (accumulated_reward > old_reward) {
-						m_ram_reward_table_true[8 * i + j] = accumulated_reward;
-						updated = true;
-					}
-				} else {
-					int old_reward = m_ram_reward_table_false[8 * i + j];
-					if (accumulated_reward > old_reward) {
-						m_ram_reward_table_false[8 * i + j] =
-								accumulated_reward;
-						updated = true;
-					}
-				}
-			}
-		}
-
-	} else {
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-
-			int old_reward = m_ram_reward_table_byte[256 * i + byte];
-			if (accumulated_reward > old_reward) {
-				m_ram_reward_table_byte[256 * i + byte] = accumulated_reward;
-				updated = true;
+	vector<bool> features;
+	m_novelty_feature->getFeatures(get_screen(machine_state),
+			machine_state.getRAM(), features);
+	for (int i = 0; i < features.size(); ++i) {
+		if (features[i]) {
+			if (accumulated_reward > m_novelty_table[i]) {
+				m_novelty_table[i] = accumulated_reward;
 			}
 		}
 	}
+
+//	if (!image_based) {
+//		const ALERAM ram_state = machine_state.getRAM();
+//		if (m_novelty_boolean_representation) {
+//
+//			for (unsigned int i = 0; i < ram_state.size(); i++) {
+//				unsigned char mask = 1;
+//				byte_t byte = ram_state.get(i);
+//				for (int j = 0; j < 8; j++) {
+//					bool bit_is_set = (byte & (mask << j)) != 0;
+//					if (bit_is_set) {
+//						int old_reward = m_ram_reward_table_true[8 * i + j];
+//						if (accumulated_reward > old_reward) {
+//							m_ram_reward_table_true[8 * i + j] =
+//									accumulated_reward;
+//							updated = true;
+//						}
+//					} else {
+//						int old_reward = m_ram_reward_table_false[8 * i + j];
+//						if (accumulated_reward > old_reward) {
+//							m_ram_reward_table_false[8 * i + j] =
+//									accumulated_reward;
+//							updated = true;
+//						}
+//					}
+//				}
+//			}
+//
+//		} else {
+//			for (unsigned int i = 0; i < ram_state.size(); i++) {
+//				unsigned char mask = 1;
+//				byte_t byte = ram_state.get(i);
+//
+//				int old_reward = m_ram_reward_table_byte[256 * i + byte];
+//				if (accumulated_reward > old_reward) {
+//					m_ram_reward_table_byte[256 * i + byte] =
+//							accumulated_reward;
+//					updated = true;
+//				}
+//			}
+//		}
+//	} else {
+//		const ALEScreen image = get_screen(machine_state);
+//		int m_column = image.width();
+////		printf("image_size=%d\n", image.arraySize());
+////		for (size_t i = 0; i < image.arraySize(); ++i) {
+////			m_image_reward_table->set(i, image.get(i / m_column, i % m_column));
+////		}
+//	}
 //	if (updated) {
 //		printf("Updated rewards\n");
 //	}
 }
 
-bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
+bool PIW1Search::check_novelty_1(ALEState& machine_state,
 		reward_t accumulated_reward) {
+	vector<bool> features;
+	m_novelty_feature->getFeatures(get_screen(machine_state),
+			machine_state.getRAM(), features);
+	for (int i = 0; i < features.size(); ++i) {
+		// If a feature is true in the new state but not in the novelty table,
+		// it means that the state has a new feature.
+		if (features[i] && accumulated_reward > m_novelty_table[i]) {
+			return true;
+		}
+	}
+	return false;
+
 //	for (size_t i = 0; i < machine_state.size(); i++)
 //		if (m_novelty_boolean_representation) {
 //			unsigned char mask = 1;
@@ -221,93 +278,104 @@ bool PIW1Search::check_novelty_1(const ALERAM& machine_state,
 //			return true;
 //	return false;
 
-	if (m_novelty_boolean_representation) {
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-			for (int j = 0; j < 8; j++) {
-				bool bit_is_set = (byte & (mask << j)) != 0;
-				if (bit_is_set) {
-//				if (m_ram_reward_table_true[8 * i + j]
-//						> numeric_limits<int>::min()) {
-//					return true;
+//	const ALERAM ram_state = machine_state.getRAM();
+//	if (m_novelty_boolean_representation) {
+//		for (unsigned int i = 0; i < ram_state.size(); i++) {
+//			unsigned char mask = 1;
+//			byte_t byte = ram_state.get(i);
+//			for (int j = 0; j < 8; j++) {
+//				bool bit_is_set = (byte & (mask << j)) != 0;
+//				if (bit_is_set) {
+////				if (m_ram_reward_table_true[8 * i + j]
+////						> numeric_limits<int>::min()) {
+////					return true;
+////				}
+//
+//					if (accumulated_reward
+//							> m_ram_reward_table_true[8 * i + j]) {
+////					printf("update: curr_reward= %d table_reward= %d\n",
+////							accumulated_reward,
+////							m_ram_reward_table_true[8 * i + j]);
+//						return true;
+//					}
+//				} else {
+////				if (m_ram_reward_table_false[8 * i + j]
+////						> numeric_limits<int>::min()) {
+////					return true;
+////				}
+//
+//					if (accumulated_reward
+//							> m_ram_reward_table_false[8 * i + j]) {
+////					printf("update: curr_reward= %d table_reward= %d\n",
+////							accumulated_reward,
+////							m_ram_reward_table_false[8 * i + j]);
+//						return true;
+//					}
 //				}
-
-					if (accumulated_reward
-							> m_ram_reward_table_true[8 * i + j]) {
-//					printf("update: curr_reward= %d table_reward= %d\n",
-//							accumulated_reward,
-//							m_ram_reward_table_true[8 * i + j]);
-						return true;
-					}
-				} else {
-//				if (m_ram_reward_table_false[8 * i + j]
-//						> numeric_limits<int>::min()) {
-//					return true;
-//				}
-
-					if (accumulated_reward
-							> m_ram_reward_table_false[8 * i + j]) {
-//					printf("update: curr_reward= %d table_reward= %d\n",
-//							accumulated_reward,
-//							m_ram_reward_table_false[8 * i + j]);
-						return true;
-					}
-				}
-			}
-		}
-	} else {
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
-				return true;
-			}
-		}
-	}
-	return false;
+//			}
+//		}
+//	} else {
+//		for (unsigned int i = 0; i < ram_state.size(); i++) {
+//			unsigned char mask = 1;
+//			byte_t byte = ram_state.get(i);
+//			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
+//				return true;
+//			}
+//		}
+//	}
+//	return false;
 
 }
 
 // TODO: This should be called BEFORE we update the reward table.
-int PIW1Search::check_novelty(const ALERAM& machine_state,
+int PIW1Search::check_novelty(ALEState& machine_state,
 		reward_t accumulated_reward) {
 	int novelty = 0;
-
-	if (m_novelty_boolean_representation) {
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-			for (int j = 0; j < 8; j++) {
-				bool bit_is_set = (byte & (mask << j)) != 0;
-				if (bit_is_set) {
-					if (accumulated_reward
-							> m_ram_reward_table_true[8 * i + j]) {
-						++novelty;
-					}
-				} else {
-					if (accumulated_reward
-							> m_ram_reward_table_false[8 * i + j]) {
-						++novelty;
-					}
-				}
-			}
-		}
-		return novelty;
-	} else {
-		for (unsigned int i = 0; i < machine_state.size(); i++) {
-			unsigned char mask = 1;
-			byte_t byte = machine_state.get(i);
-			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
-				++novelty;
-			}
+	vector<bool> features;
+	m_novelty_feature->getFeatures(get_screen(machine_state),
+			machine_state.getRAM(), features);
+	for (int i = 0; i < features.size(); ++i) {
+		// If a feature is true in the new state but not in the novelty table,
+		// it means that the state has a new feature.
+		if (features[i] && accumulated_reward > m_novelty_table[i]) {
+			++novelty;
 		}
 	}
 	return novelty;
+//	const ALERAM ram_state = machine_state.getRAM();
+//	if (m_novelty_boolean_representation) {
+//		for (unsigned int i = 0; i < ram_state.size(); i++) {
+//			unsigned char mask = 1;
+//			byte_t byte = ram_state.get(i);
+//			for (int j = 0; j < 8; j++) {
+//				bool bit_is_set = (byte & (mask << j)) != 0;
+//				if (bit_is_set) {
+//					if (accumulated_reward
+//							> m_ram_reward_table_true[8 * i + j]) {
+//						++novelty;
+//					}
+//				} else {
+//					if (accumulated_reward
+//							> m_ram_reward_table_false[8 * i + j]) {
+//						++novelty;
+//					}
+//				}
+//			}
+//		}
+//		return novelty;
+//	} else {
+//		for (unsigned int i = 0; i < ram_state.size(); i++) {
+//			unsigned char mask = 1;
+//			byte_t byte = ram_state.get(i);
+//			if (accumulated_reward > m_ram_reward_table_byte[256 * i + byte]) {
+//				++novelty;
+//			}
+//		}
+//	}
+//	return novelty;
 }
 
-int PIW1Search::calc_fn(const ALERAM& machine_state,
-		reward_t accumulated_reward) {
+int PIW1Search::calc_fn(ALEState& machine_state, reward_t accumulated_reward) {
 	int n_novelty = check_novelty(machine_state, accumulated_reward);
 
 	double k = 1.0;
@@ -339,13 +407,11 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 			isUsefulAction = dasd->getEffectiveActions(p,
 					trajectory.size() * sim_steps_per_node);
 
-
 		}
 	}
 
 	for (int a = 0; a < num_actions; a++) {
 		Action act = curr_node->available_actions[a];
-
 
 		TreeNode * child;
 
@@ -355,8 +421,8 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 				if (curr_node != p_root) {
 					if (!isUsefulAction[act]) {
 						m_jasd_pruned_nodes++;
-						TreeNode * child = new TreeNode(curr_node, curr_node->state,
-								this, act, 0);
+						TreeNode * child = new TreeNode(curr_node,
+								curr_node->state, this, act, 0);
 						curr_node->v_children[a] = child;
 						child->is_terminal = true;
 						continue;
@@ -369,8 +435,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 					sim_steps_per_node);
 
 			// Pruning is executed when the node is generated.
-			if (check_novelty_1(child->state.getRAM(),
-					child->accumulated_reward)) {
+			if (check_novelty_1(child->state, child->accumulated_reward)) {
 
 //				child->additive_novelty = check_novelty(child->state.getRAM(),
 //						child->accumulated_reward);
@@ -382,8 +447,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 //						child->additive_novelty, child->accumulated_reward,
 //						child->fn);
 
-				update_novelty_table(child->state.getRAM(),
-						child->accumulated_reward);
+				update_novelty_table(child->state, child->accumulated_reward);
 
 			} else {
 //				printf("pruned state\n");
@@ -409,7 +473,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 			// we change the root of the search tree)
 			if (m_novelty_pruning) {
 				if (child->is_terminal) {
-					if (check_novelty_1(child->state.getRAM(),
+					if (check_novelty_1(child->state,
 							child->accumulated_reward)) {
 
 //						child->additive_novelty = check_novelty(
@@ -423,7 +487,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 //								child->additive_novelty,
 //								child->accumulated_reward, child->fn);
 
-						update_novelty_table(child->state.getRAM(),
+						update_novelty_table(child->state,
 								child->accumulated_reward);
 
 						child->is_terminal = false;
@@ -500,7 +564,7 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 //q.push(start_node);
 	pivots.push_back(start_node);
 
-	update_novelty_table(start_node->state.getRAM(), 0);
+	update_novelty_table(start_node->state, 0);
 
 	int num_simulated_steps = 0;
 
@@ -600,14 +664,14 @@ void PIW1Search::expand_tree(TreeNode* start_node) {
 void PIW1Search::clear() {
 	SearchTree::clear();
 	int minus_inf = numeric_limits<int>::min();
-
-	if (m_novelty_boolean_representation) {
-
-		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
-	} else {
-		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
-	}
+	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), minus_inf);
+//	if (m_novelty_boolean_representation) {
+//
+//		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+//		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+//	} else {
+//		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+//	}
 
 	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
 			TreeNodeComparerReward> emptyr;
@@ -627,13 +691,14 @@ void PIW1Search::clear() {
 void PIW1Search::move_to_best_sub_branch() {
 	SearchTree::move_to_best_sub_branch();
 	int minus_inf = numeric_limits<int>::min();
-	if (m_novelty_boolean_representation) {
-
-		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
-		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
-	} else {
-		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
-	}
+	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), minus_inf);
+//	if (m_novelty_boolean_representation) {
+//
+//		m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
+//		m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
+//	} else {
+//		m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
+//	}
 
 	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
 			TreeNodeComparerReward> emptyr;
@@ -762,6 +827,14 @@ bool PIW1Search::test_duplicate_reward(TreeNode * node) {
 		node->duplicate = false;
 		return false;
 	}
+}
+
+const ALEScreen PIW1Search::get_screen(ALEState &machine_state) {
+	ALEState buffer = m_env->cloneState();
+	m_env->restoreState(machine_state);
+	const ALEScreen screen = m_env->buildAndGetScreen();
+	m_env->restoreState(buffer);
+	return screen;
 }
 
 void PIW1Search::print_frame_data(int frame_number, float elapsed,
