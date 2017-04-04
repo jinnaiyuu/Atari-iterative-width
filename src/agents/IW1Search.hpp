@@ -73,6 +73,7 @@ protected:
 	bool m_stop_on_first_reward;
 	unsigned m_reward_horizon;
 	bool m_novelty_boolean_representation;
+	std::string m_feature;
 	int m_redundant_ram;
 
 };

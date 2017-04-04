@@ -30,7 +30,10 @@ MODULE_OBJS += \
 	src/agents/features/Features.o \
 	src/agents/features/RAMBytes.o \
 	src/agents/features/TFBinary.o \
-	src/agents/features/ScreenPixels.o
+	src/agents/features/ScreenPixels.o \
+	src/agents/features/Background.o \
+	src/agents/features/BasicFeatures.o \
+	src/agents/features/BPROFeatures.o	
 	
 
 MODULE_DIRS += \

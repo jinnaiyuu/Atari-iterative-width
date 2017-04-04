@@ -19,6 +19,7 @@
 #include "Background.hpp"
 #endif
 
+// Tile Encoding.
 class BasicFeatures: public Features {
 private:
 //		Parameters *param;
@@ -26,6 +27,7 @@ private:
 	Background *background;
 	int screen_f_n_rows;
 	int screen_f_n_columns;
+	int screen_f_n_colors;
 	bool getSubstractBackground;
 //		int numberOfFeatures;
 public:
@@ -44,6 +46,8 @@ public:
 	 */
 	BasicFeatures(RomSettings *rom_settings, Settings &settings,
 			ActionVect &actions, StellaEnvironment* _env);
+	void getFeatures(const ALEScreen &screen, const ALERAM &ram,
+			vector<bool>& features);
 	/**
 	 * This method is the instantiation of the virtual method in the class Features (also check
 	 * its documentation). It iterates over all tiles defined by the columns and rows and checks
@@ -61,8 +65,7 @@ public:
 	 *        therefore it must be passed by reference. It contain the active indices.
 	 * @return nothing as one will receive the requested data by the last parameter, by reference.
 	 */
-	void getActiveFeaturesIndices(const ALEScreen &screen, const ALERAM &ram,
-			vector<int>& features);
-	void getFeatures(const ALEScreen &screen, const ALERAM &ram,
-			vector<bool>& features);
+//	void getActiveFeaturesIndices(const ALEScreen &screen, const ALERAM &ram,
+//			vector<int>& features);
+
 };
