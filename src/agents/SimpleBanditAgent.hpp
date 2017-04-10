@@ -68,6 +68,7 @@ public:
 protected:
 
 	virtual Action act();
+//	virtual pair<Action, int> act_dur();
 
 protected:
 

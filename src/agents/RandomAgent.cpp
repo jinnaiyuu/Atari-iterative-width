@@ -24,3 +24,7 @@ Action RandomAgent::act() {
   return choice(&available_actions);
 }
 
+//pair<Action, int> RandomAgent::act_dur() {
+//  return pair<Action, int> (choice(&available_actions), 5);
+//}
+//

@@ -526,6 +526,11 @@ void IW1Search::move_to_best_sub_branch() {
 //	}
 }
 
+void IW1Search::move_to_branch(Action a, int duration) {
+	SearchTree::move_to_branch(a, duration);
+	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), false);
+
+}
 /* *********************************************************************
  Updates the branch reward for the given node
  which equals to: node_reward + max(children.branch_return)

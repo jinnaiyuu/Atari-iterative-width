@@ -7,6 +7,8 @@
 #include "features/TFBinary.hpp"
 #include "features/RAMBytes.hpp"
 #include "features/ScreenPixels.hpp"
+#include "features/BasicFeatures.hpp"
+#include "features/BPROFeatures.hpp"
 
 PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 		ActionVect &actions, StellaEnvironment* _env) :
@@ -26,21 +28,46 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 
 	m_redundant_ram = settings.getInt("iw1_redundant_ram", false);
 
-	// TODO: State feature should definitely be refactored.
-	//       I'm like 3 days before the deadline so forgive me.
-	if (!image_based) {
-		if (m_novelty_boolean_representation) {
-			m_novelty_feature = new TFBinary(_env);
+	m_feature = settings.getString("iw1_feature", false);
+
+	if (m_feature == "ram_binary") {
+		m_novelty_feature = new TFBinary(_env);
+		printf("IW1 feature: ram_binary\n");
+	} else if (m_feature == "ram_bytes") {
+		m_redundant_ram = settings.getInt("iw1_redundant_ram", false);
+		if (m_redundant_ram >= 1) {
+			m_novelty_feature = new RAMBytes(_env, m_redundant_ram);
+		} else {
+			m_novelty_feature = new RAMBytes(_env);
+		}
+		printf("IW1 feature: ram_bytes with redundancy %d\n", m_redundant_ram);
+	} else if (m_feature == "screen_pixel") {
+		m_novelty_feature = new ScreenPixels(_env);
+		printf("IW1 feature: screen_pixel\n");
+	} else if (m_feature == "tile") {
+		m_novelty_feature = new BasicFeatures(rom_settings, settings, actions,
+				_env);
+		printf("IW1 feature: tile\n");
+	} else if (m_feature == "bpro") {
+		m_novelty_feature = new BPROFeatures(rom_settings, settings, actions,
+				_env);
+		printf("IW1 feature: bpro\n");
+	} else {
+		// TODO: State feature should definitely be refactored.
+		//       I'm like 3 days before the deadline so forgive me.
+		if (!image_based) {
+			if (m_novelty_boolean_representation) {
+				m_novelty_feature = new TFBinary(_env);
 //			m_ram_reward_table_true.resize(8 * RAM_SIZE);
 //			m_ram_reward_table_false.resize(8 * RAM_SIZE);
 //			m_ram_reward_table_true.assign(8 * RAM_SIZE, minus_inf);
 //			m_ram_reward_table_false.assign(8 * RAM_SIZE, minus_inf);
-		} else {
-			if (m_redundant_ram >= 1) {
-				m_novelty_feature = new RAMBytes(_env, m_redundant_ram);
 			} else {
-				m_novelty_feature = new RAMBytes(_env);
-			}
+				if (m_redundant_ram >= 1) {
+					m_novelty_feature = new RAMBytes(_env, m_redundant_ram);
+				} else {
+					m_novelty_feature = new RAMBytes(_env);
+				}
 
 //			if (m_redundant_ram >= 1) {
 //				m_ram_reward_table_byte.resize(
@@ -51,13 +78,15 @@ PIW1Search::PIW1Search(RomSettings *rom_settings, Settings &settings,
 //				m_ram_reward_table_byte.resize(256 * RAM_SIZE);
 //				m_ram_reward_table_byte.assign(256 * RAM_SIZE, minus_inf);
 //			}
+			}
+		} else {
+			m_novelty_feature = new ScreenPixels(_env);
 		}
-	} else {
-		m_novelty_feature = new ScreenPixels(_env);
 	}
 	m_novelty_table.resize(m_novelty_feature->getNumberOfFeatures());
 	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), minus_inf);
-
+	printf("IW1: feature = %s, feature size = %d\n", m_feature.c_str(),
+			m_novelty_feature->getNumberOfFeatures());
 // TODO: parameterize
 //	ignore_duplicates = true;
 
@@ -383,6 +412,7 @@ int PIW1Search::calc_fn(ALEState& machine_state, reward_t accumulated_reward) {
 }
 
 int PIW1Search::expand_node(TreeNode* curr_node) {
+	assert(curr_node != nullptr && "expand_node: curr_node == nullptr");
 	int num_simulated_steps = 0;
 	int num_actions = available_actions.size();
 	bool leaf_node = (curr_node->v_children.empty());
@@ -431,6 +461,7 @@ int PIW1Search::expand_node(TreeNode* curr_node) {
 			}
 
 			m_generated_nodes++;
+
 			child = new TreeNode(curr_node, curr_node->state, this, act,
 					sim_steps_per_node);
 
@@ -686,6 +717,21 @@ void PIW1Search::clear() {
 //		m_ram_novelty_table_false->clear();
 //	} else
 //		m_ram_novelty_table->clear();
+}
+
+void PIW1Search::move_to_branch(Action a, int duration) {
+	SearchTree::move_to_branch(a, duration);
+	int minus_inf = numeric_limits<int>::min();
+	m_novelty_table.assign(m_novelty_feature->getNumberOfFeatures(), minus_inf);
+
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerReward> emptyr;
+	std::swap(m_q_reward, emptyr);
+
+	std::priority_queue<TreeNode*, std::vector<TreeNode*>,
+			TreeNodeComparerAdditiveNovelty> emptyn;
+	std::swap(m_q_novelty, emptyn);
+
 }
 
 void PIW1Search::move_to_best_sub_branch() {

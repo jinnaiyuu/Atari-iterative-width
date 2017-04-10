@@ -30,3 +30,6 @@ Action SingleActionAgent::act() {
     return agent_action; 
 }
 
+//pair<Action, int> SingleActionAgent::act_dur() {
+//  return pair<Action, int> (choice(&available_actions), 5);
+//}

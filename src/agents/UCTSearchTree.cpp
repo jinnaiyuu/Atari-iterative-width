@@ -55,6 +55,11 @@ UCTSearchTree::UCTSearchTree(RomSettings * rom_settings, Settings &settings,
 			PLAYER_A_MAX - min.size(), action_to_string(biased_action).c_str());
 		}
 	}
+
+	m_max_action = settings.getBool("uct_max_action", false);
+	if (m_max_action) {
+		printf("uct_max_action\n");
+	}
 }
 
 /* *********************************************************************
@@ -145,6 +150,10 @@ void UCTSearchTree::print_path(TreeNode * node, int a) {
 	}
 }
 
+void UCTSearchTree::move_to_branch(Action a, int duration) {
+	SearchTree::move_to_branch(a, duration);
+}
+
 /* *********************************************************************
  Returns the best action based on the expanded search tree
  ******************************************************************* */
@@ -155,9 +164,12 @@ Action UCTSearchTree::get_best_action(void) {
 	//  for all children of p_root
 	int best_branch;
 
-	// best_branch = get_best_branch((UCTTreeNode*)p_root, false);
-	// Select based on most explored action
-	best_branch = get_most_visited_branch((UCTTreeNode*) p_root);
+	if (m_max_action) {
+		best_branch = get_best_branch((UCTTreeNode*) p_root, false);
+	} else {
+		// Select based on most explored action
+		best_branch = get_most_visited_branch((UCTTreeNode*) p_root);
+	}
 
 	assert(best_branch != -1);
 
@@ -524,7 +536,7 @@ int UCTSearchTree::do_monte_carlo(UCTTreeNode* start_node, int num_steps,
 			usefulActions = available_actions;
 		}
 		Action action = choice(&usefulActions);
-		steps += simulate_game(start_node->state, (Action) action,
+		steps += simulate_game_err(start_node->state, (Action) action,
 				sim_steps_per_node, mc_return, is_terminal, true, false);
 		if (action_sequence_detection) {
 			if (!previousActions.empty()) {

@@ -48,6 +48,7 @@ public:
 	 Returns the best action based on the expanded search tree
 	 ******************************************************************* */
 	virtual Action get_best_action(void);
+	virtual void move_to_branch(Action a, int duration);
 
 protected:
 
@@ -99,6 +100,8 @@ protected:
 	void print_node(UCTTreeNode*);
 	int uct_biased_rollout;
 	Action biased_action;
+
+	bool m_max_action;
 
 	std::vector<Action> getEffectiveActionsVector(const TreeNode* node) const;
 

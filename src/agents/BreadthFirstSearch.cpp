@@ -58,6 +58,7 @@ void BreadthFirstSearch::update_tree() {
 void BreadthFirstSearch::expand_tree(TreeNode* start_node) {
 	// If the root is terminal, we will not expand any of its children; deal with this
 	//  appropriately
+	assert(start_node != nullptr && "start_node is null");
 	if (start_node->is_terminal) {
 		set_terminal_root(start_node);
 		return;
@@ -175,7 +176,10 @@ void BreadthFirstSearch::clear() {
 
 void BreadthFirstSearch::move_to_best_sub_branch() {
 	SearchTree::move_to_best_sub_branch();
+}
 
+void BreadthFirstSearch::move_to_branch(Action a, int duration) {
+	SearchTree::move_to_branch(a, duration);
 }
 
 /* *********************************************************************

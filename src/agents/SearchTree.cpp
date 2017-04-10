@@ -95,6 +95,17 @@ SearchTree::SearchTree(RomSettings * rom_settings, Settings & settings,
 
 	printf("MinimalActionSet= %d\n",
 			m_rom_settings->getMinimalActionSet().size());
+
+	erroneous_prediction = settings.getBool("erroneous_prediction", false);
+	if (erroneous_prediction) {
+		prediction_error_rate = settings.getFloat("prediction_error_rate",
+				false);
+		if (prediction_error_rate < 0) {
+			prediction_error_rate = 0.03;
+		}
+		printf("Prediction Error Rate = %f\n", prediction_error_rate);
+	}
+
 }
 
 /* *********************************************************************
@@ -224,6 +235,85 @@ void SearchTree::move_to_best_sub_branch(void) {
 	m_max_depth = 0;
 }
 
+void SearchTree::move_to_branch(Action a, int duration) {
+	assert(p_root->v_children.size() > 0);
+	int best_branch = -1;
+	if (duration == sim_steps_per_node) {
+		bool prediction_error = false;
+		TreeNode* newChild = new TreeNode(p_root, p_root->state, this, a,
+				duration, discount_factor);
+		// Delete all the other branches
+		for (size_t del = 0; del < p_root->v_children.size(); del++) {
+			if (p_root->v_children[del] == nullptr) {
+				continue;
+			}
+			if (p_root->v_children[del]->act != a) {
+				delete_branch(p_root->v_children[del]);
+			} else {
+				if (newChild->state.equals(p_root->v_children[del]->state)) {
+					best_branch = del;
+				} else {
+					printf("Prediction error\n");
+					prediction_error = true;
+				}
+			}
+		}
+		if (prediction_error) {
+			TreeNode* old_root = p_root;
+			p_root = newChild;
+			delete old_root;
+			p_root->p_parent = NULL;
+			m_max_depth = 0;
+		} else {
+			TreeNode* old_root = p_root;
+			p_root = p_root->v_children[best_branch];
+			// make sure the child I want to become root doesn't get deleted:
+			old_root->v_children[old_root->best_branch] = NULL;
+			delete old_root;
+			p_root->p_parent = NULL;
+			m_max_depth = 0;
+		}
+	} else {
+		ALEState buffer = m_env->cloneState();
+		ALEState s = p_root->state;
+		return_t r = 0;
+		bool terminated = false;
+		TreeNode* newChild = new TreeNode(p_root, s, this, a, duration,
+				discount_factor);
+
+		int best_branch = -1;
+		for (int i = 0; i < p_root->v_children.size(); ++i) {
+			if (newChild->state.equals(p_root->v_children[i]->state)) {
+				best_branch = i;
+				break;
+			} else {
+				delete_branch(p_root->v_children[i]);
+			}
+		}
+		if (best_branch != -1) {
+			delete newChild;
+			TreeNode* old_root = p_root;
+			p_root = p_root->v_children[best_branch];
+			// make sure the child I want to become root doesn't get deleted:
+			old_root->v_children[old_root->best_branch] = NULL;
+			delete old_root;
+			p_root->p_parent = NULL;
+			m_max_depth = 0;
+		} else {
+			TreeNode* old_root = p_root;
+			p_root = newChild;
+			// make sure the child I want to become root doesn't get deleted:
+//			old_root->v_children[old_root->best_branch] = NULL;
+			delete old_root;
+			p_root->p_parent = NULL;
+			m_max_depth = 0;
+		}
+
+		m_env->restoreState(buffer);
+	}
+
+}
+
 /* *********************************************************************
  Deletes a node and all its children, all the way down the branch
  ******************************************************************* */
@@ -295,8 +385,8 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 
 	auto context_elapsed = std::chrono::high_resolution_clock::now()
 			- context_start;
-	long long context_microseconds = std::chrono::duration_cast
-			< std::chrono::microseconds > (context_elapsed).count();
+	long long context_microseconds = std::chrono::duration_cast<
+			std::chrono::microseconds>(context_elapsed).count();
 //	printf("t=%.2f, %lld, microseconds);
 
 	m_context_time += context_microseconds;
@@ -363,8 +453,8 @@ int SearchTree::simulate_game(ALEState & state, Action act, int num_steps,
 //	printf("%.2f millisecnds.\n", duration.count());
 
 	auto elapsed = std::chrono::high_resolution_clock::now() - start;
-	long long microseconds = std::chrono::duration_cast
-			< std::chrono::microseconds > (elapsed).count();
+	long long microseconds = std::chrono::duration_cast<
+			std::chrono::microseconds>(elapsed).count();
 //	printf("t=%.2f, %lld, microseconds);
 
 	m_emulation_time += microseconds;
@@ -388,6 +478,27 @@ int SearchTree::simulate_game_random(ALEState & state, ActionVect&action_set,
 	available_actions = buffer;
 
 	return steps;
+}
+
+int SearchTree::simulate_game_err(ALEState & state, Action act, int num_steps,
+		return_t &traj_return, bool &game_ended, bool discount_return,
+		bool save_state) {
+	if (erroneous_prediction) {
+		pair<Action, int> rnd = randomizeAction(act, num_steps);
+//		if (rnd.first != act) {
+//			printf("Randomized prediction from %d to %d\n", (int) act,
+//					(int) rnd.first);
+//		}
+//		if (rnd.second != num_steps) {
+//			printf("duration = %d\n", rnd.second);
+//
+//		}
+		return simulate_game(state, rnd.first, rnd.second, traj_return,
+				game_ended, discount_return, save_state);
+	} else {
+		return simulate_game(state, act, num_steps, traj_return, game_ended,
+				discount_return, save_state);
+	}
 }
 
 return_t SearchTree::normalize(reward_t reward) {
@@ -522,3 +633,107 @@ int SearchTree::getDetectedUsedActionsSize() {
 		return 0;
 	}
 }
+
+pair<Action, int> SearchTree::randomizeAction(Action a, int duration) {
+	int x_axis;
+	int y_axis;
+	bool fire;
+	if (a == PLAYER_A_NOOP || a == PLAYER_A_UP || a == PLAYER_A_DOWN
+			|| a == PLAYER_A_FIRE || a == PLAYER_A_UPFIRE
+			|| a == PLAYER_A_DOWNFIRE) {
+		x_axis = 0;
+	} else if (a == PLAYER_A_LEFT || a == PLAYER_A_UPLEFT
+			|| a == PLAYER_A_DOWNLEFT || a == PLAYER_A_LEFTFIRE
+			|| a == PLAYER_A_UPLEFTFIRE || a == PLAYER_A_DOWNLEFTFIRE) {
+		x_axis = -1;
+	} else {
+		x_axis = 1;
+	}
+
+	if (a == PLAYER_A_NOOP || a == PLAYER_A_LEFT || a == PLAYER_A_RIGHT
+			|| a == PLAYER_A_FIRE || a == PLAYER_A_LEFTFIRE
+			|| a == PLAYER_A_RIGHTFIRE) {
+		y_axis = 0;
+	} else if (a == PLAYER_A_DOWN || a == PLAYER_A_DOWNLEFT
+			|| a == PLAYER_A_DOWNRIGHT || a == PLAYER_A_DOWNFIRE
+			|| a == PLAYER_A_DOWNLEFTFIRE || a == PLAYER_A_DOWNRIGHTFIRE) {
+		y_axis = -1;
+	} else {
+		y_axis = 1;
+	}
+
+	if (a == PLAYER_A_NOOP || a == PLAYER_A_UP || a == PLAYER_A_RIGHT
+			|| a == PLAYER_A_DOWN || a == PLAYER_A_LEFT || a == PLAYER_A_UPRIGHT
+			|| a == PLAYER_A_DOWNRIGHT || a == PLAYER_A_DOWNLEFT
+			|| a == PLAYER_A_UPLEFT) {
+		fire = false;
+	} else {
+		fire = true;
+	}
+
+	if (rand() < prediction_error_rate * (double) RAND_MAX) {
+		vector<pair<int, int>> errors;
+		if (x_axis <= 0) {
+			errors.push_back(pair<int, int>(1, 0));
+		}
+		if (x_axis >= 0) {
+			errors.push_back(pair<int, int>(-1, 0));
+		}
+		if (y_axis <= 0) {
+			errors.push_back(pair<int, int>(0, 1));
+		}
+		if (y_axis >= 0) {
+			errors.push_back(pair<int, int>(0, -1));
+		}
+		pair<int, int> err = choice(&errors);
+		x_axis += err.first;
+		y_axis += err.second;
+	}
+
+	if (rand() < prediction_error_rate * (double) RAND_MAX) {
+		fire = !fire;
+	}
+
+	Action ret;
+	int dur = duration;
+
+	if (x_axis == 0 && y_axis == 0) {
+		ret = (Action) fire;
+	} else {
+		int bias = 2;
+		if (fire) {
+			bias = 10;
+		}
+		if (x_axis == 0 && y_axis == 1) {
+			ret = (Action) bias;
+		} else if (x_axis == 1 && y_axis == 0) {
+			ret = (Action) (bias + 1);
+		} else if (x_axis == -1 && y_axis == 0) {
+			ret = (Action) (bias + 2);
+		} else if (x_axis == 0 && y_axis == -1) {
+			ret = (Action) (bias + 3);
+		} else if (x_axis == 1 && y_axis == 1) {
+			ret = (Action) (bias + 4);
+		} else if (x_axis == -1 && y_axis == 1) {
+			ret = (Action) (bias + 5);
+		} else if (x_axis == 1 && y_axis == -1) {
+			ret = (Action) (bias + 6);
+		} else if (x_axis == -1 && y_axis == -1) {
+			ret = (Action) (bias + 7);
+		} else {
+			assert(false && "randomizeAction error");
+			ret = (Action) 0;
+		}
+	}
+
+	if (rand() < prediction_error_rate * RAND_MAX) {
+		if (rand() % 2) {
+			dur += 1;
+		} else {
+			dur -= 1;
+		}
+//		printf("duration = %d\n", dur);
+	}
+	return pair<Action, int>(ret, dur);
+}
+

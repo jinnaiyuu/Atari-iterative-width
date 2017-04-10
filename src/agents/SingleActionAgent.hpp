@@ -31,6 +31,7 @@ class SingleActionAgent : public PlayerAgent {
             Returns the best action from the set of possible actions
          ******************************************************************** */
         virtual Action act();
+//        virtual pair<Action, int> act_dur();
 
   protected:
       double epsilon;

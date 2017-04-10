@@ -105,7 +105,7 @@ protected:
 
 	virtual void clear();
 	virtual void move_to_best_sub_branch();
-
+	virtual void move_to_branch(Action a, int duration);
 	bool test_duplicate_reward(TreeNode * node);
 
 	const ALEScreen get_screen(ALEState &machine_state);
@@ -122,6 +122,7 @@ protected:
 //	aptk::Bit_Matrix* m_ram_novelty_table_false;
 	Features* m_novelty_feature;
 	std::vector<int> m_novelty_table;
+	std::string m_feature;
 
 //	std::vector<int> m_ram_reward_table_true;
 //	std::vector<int> m_ram_reward_table_false;

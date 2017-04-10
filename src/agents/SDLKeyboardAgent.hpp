@@ -24,39 +24,47 @@
 
 #ifdef __USE_SDL
 class SDLKeyboardAgent : public PlayerAgent, SDLEventHandler {
-  public:
-    SDLKeyboardAgent(OSystem * _osystem, RomSettings * _settings);
-		
-    /* *********************************************************************
-       Handles SDL events such as allowing the player to control the screen
-       using the keyboard.
-       * ****************************************************************** */
-    bool handleSDLEvent(const SDL_Event& event);
-    void display_screen(IntMatrix& screen_matrix, int screen_width, int screen_height) {};
-    void usage();
+public:
+	SDLKeyboardAgent(OSystem * _osystem, RomSettings * _settings);
 
-	protected:
-    /* *********************************************************************
-       Captures the users keypresses. Used for manually controlling the game.
-       * ****************************************************************** */
-    Action waitForKeypress();
+	/* *********************************************************************
+	 Handles SDL events such as allowing the player to control the screen
+	 using the keyboard.
+	 * ****************************************************************** */
+	bool handleSDLEvent(const SDL_Event& event);
+	void display_screen(IntMatrix& screen_matrix, int screen_width, int screen_height) {};
+	void usage();
 
-    /* *********************************************************************
-        Returns the best action from the set of possible actions
-     ******************************************************************** */
-    virtual Action act();
+protected:
+	/* *********************************************************************
+	 Captures the users keypresses. Used for manually controlling the game.
+	 * ****************************************************************** */
+	Action waitForKeypress();
 
-  private:
-    bool returnToPause;               // This is used after manual control is released to set paused state
-    bool manual_control;              // Is the game being controlled manually?
+	/* *********************************************************************
+	 Returns the best action from the set of possible actions
+	 ******************************************************************** */
+	virtual Action act();
+
+private:
+	bool returnToPause; // This is used after manual control is released to set paused state
+	bool manual_control;// Is the game being controlled manually?
 };
 #else
 /** A dummy class for when SDL is not used. */
-class SDLKeyboardAgent : public PlayerAgent {
-  public:
-    SDLKeyboardAgent(OSystem * _osystem, RomSettings * _settings):PlayerAgent(_osystem, _settings) {}
-    
-    virtual Action act() { return (Action)0; }
+class SDLKeyboardAgent: public PlayerAgent {
+public:
+	SDLKeyboardAgent(OSystem * _osystem, RomSettings * _settings) :
+			PlayerAgent(_osystem, _settings) {
+	}
+
+	virtual Action act() {
+		return (Action) 0;
+	}
+//	virtual pair<Action, int> act_dur() {
+//		return pair<Action, int>(PLAYER_A_NOOP, 5);
+//	}
+
 };
 #endif
 

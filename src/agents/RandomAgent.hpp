@@ -30,6 +30,7 @@ class RandomAgent : public PlayerAgent {
             Returns the best action from the set of possible actions
          ******************************************************************** */
         virtual Action act();
+//        virtual pair<Action, int> act_dur();
 };
 
 #endif // __RANDOM_AGENT_HPP__

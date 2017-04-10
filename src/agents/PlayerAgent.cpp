@@ -85,7 +85,7 @@ PlayerAgent::PlayerAgent(OSystem* _osystem, RomSettings* _settings) :
 		vector<Action> biased = available_actions;
 		vector<Action> minimal = _settings->getMinimalActionSet();
 		Action ract = (Action) (rand() % PLAYER_A_MAX);
-		for (int i = 0; i < biased.size(); ++i) {
+		for (size_t i = 0; i < biased.size(); ++i) {
 			if (std::find(minimal.begin(), minimal.end(), biased[i])
 					== minimal.end()) {
 				biased[i] = ract;
@@ -134,8 +134,7 @@ Action PlayerAgent::agent_step() {
 	}
 
 	// Only take an action if manual control is disabled
-	Action a;
-	a = act();
+	Action a = act();
 
 	if (record_trajectory)
 		record_action(a);
@@ -145,6 +144,38 @@ Action PlayerAgent::agent_step() {
 
 	return a;
 }
+
+//pair<Action, int> PlayerAgent::agent_step_dur() {
+//	// Terminate if we have a maximum number of frames
+//	if (i_max_num_frames > 0 && frame_number >= i_max_num_frames) {
+//		std::cout << "End of game called " << frame_number << ">="
+//				<< i_max_num_frames << std::endl;
+//		p_rom_settings->print(std::cout);
+//		std::cout << std::endl;
+//
+//		end_game();
+//	}
+//	// Terminate this episode if we have reached the max. number of frames
+//	if (i_max_num_frames_per_episode > 0
+//			&& episode_frame_number >= i_max_num_frames_per_episode) {
+//		std::cout << "RESET " << episode_frame_number << ">="
+//				<< i_max_num_frames_per_episode << std::endl;
+//		p_rom_settings->print(std::cout);
+//		std::cout << std::endl;
+//		return pair<Action, int>(RESET, 5);
+//	}
+//
+//	// Only take an action if manual control is disabled
+//	pair<Action, int> a_dur = act_dur();
+//
+//	if (record_trajectory)
+//		record_action(a_dur.first);
+//
+//	frame_number++;
+//	episode_frame_number++;
+//
+//	return a_dur;
+//}
 
 /* *********************************************************************
  This method is called when the game ends. The superclass
@@ -234,7 +265,8 @@ PlayerAgent* PlayerAgent::generate_agent_instance(OSystem* _osystem,
 	else if (player_agent == "single_action_agent")
 		new_agent = new SingleActionAgent(_osystem, _settings);
 	else if (player_agent == "keyboard_agent")
-		new_agent = new SDLKeyboardAgent(_osystem, _settings);
+		assert(false && "keyboard_agent is not implemented\n");
+//		new_agent = new SDLKeyboardAgent(_osystem, _settings);
 	else if (player_agent == "simple_bandit")
 		new_agent = new SimpleBanditAgent(_osystem, _settings);
 	else {

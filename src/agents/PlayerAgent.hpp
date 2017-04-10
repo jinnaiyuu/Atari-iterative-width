@@ -21,84 +21,90 @@
 #include "../environment/ale_state.hpp"
 #include "../environment/stella_environment.hpp"
 
-class PlayerAgent { 
+class PlayerAgent {
 public:
-    PlayerAgent(OSystem* _osystem, RomSettings* _settings);
-    virtual ~PlayerAgent();
-        
-    /** This methods handles the basic agent functionality: bookkeeping
-     *  the number of episodes, frames, etc... It calls the method 
-     *  act(), which will provide it with an action. act() which should 
-     *  be overriden by subclasses.
-     */
-    virtual Action agent_step();
-        
-    /* *********************************************************************
-       This method is called when the game ends. The superclass 
-       implementation takes care of counting the number of episodes, and 
-       saving the reward history. Any other update should be taken care of
-       in the derived classes
-       ******************************************************************** */
-    virtual void episode_end(void);
+	PlayerAgent(OSystem* _osystem, RomSettings* _settings);
+	virtual ~PlayerAgent();
 
-    /* *********************************************************************
-       This method is called at the beginning of each game
-       ******************************************************************** */
-    virtual Action episode_start(void);
+	/** This methods handles the basic agent functionality: bookkeeping
+	 *  the number of episodes, frames, etc... It calls the method
+	 *  act(), which will provide it with an action. act() which should
+	 *  be overriden by subclasses.
+	 */
+	virtual Action agent_step();
+//	virtual pair<Action, int> agent_step_dur();
 
-    /* *********************************************************************
-       Generates an instance of one of the PlayerAgent subclasses, based on
-       "player_agent" value in the settings. 
-       Note 1: If you add a new player_agent subclass, you need to also 
-       add it here
-       Note 2: The caller is resposible for deleting the returned pointer
-       ******************************************************************** */
-    static PlayerAgent* generate_agent_instance(OSystem* _osystem, 
-						    RomSettings * _settings,
-						StellaEnvironment* _env, bool player_B = false );
-   
-    /** Returns true when the agent is done playing the game. */
-    virtual bool has_terminated();
+	/* *********************************************************************
+	 This method is called when the game ends. The superclass
+	 implementation takes care of counting the number of episodes, and
+	 saving the reward history. Any other update should be taken care of
+	 in the derived classes
+	 ******************************************************************** */
+	virtual void episode_end(void);
 
-    void update_state( ALEState *s );
-    ALEState& current_state() { return *curr_state; }
-    bool is_player_B() {return m_player_B;}
-    void set_player_B( bool b ) { m_player_B = b; }
+	/* *********************************************************************
+	 This method is called at the beginning of each game
+	 ******************************************************************** */
+	virtual Action episode_start(void);
+
+	/* *********************************************************************
+	 Generates an instance of one of the PlayerAgent subclasses, based on
+	 "player_agent" value in the settings.
+	 Note 1: If you add a new player_agent subclass, you need to also
+	 add it here
+	 Note 2: The caller is resposible for deleting the returned pointer
+	 ******************************************************************** */
+	static PlayerAgent* generate_agent_instance(OSystem* _osystem,
+			RomSettings * _settings, StellaEnvironment* _env, bool player_B =
+					false);
+
+	/** Returns true when the agent is done playing the game. */
+	virtual bool has_terminated();
+
+	void update_state(ALEState *s);
+	ALEState& current_state() {
+		return *curr_state;
+	}
+	bool is_player_B() {
+		return m_player_B;
+	}
+	void set_player_B(bool b) {
+		m_player_B = b;
+	}
 protected:
-    virtual Action act() = 0;
-    /** Completes this run */
-    void end_game();
-        
-    void record_action(Action a);
+	virtual Action act() = 0;
+//	virtual pair<Action, int> act_dur() = 0;
+	/** Completes this run */
+	void end_game();
+
+	void record_action(Action a);
 
 protected:
-    OSystem* p_osystem;               // Pointer to the stella's OSystem 
-    RomSettings* p_rom_settings;      // An instance of the GameSettings class
-		
-    int i_max_num_episodes;           // We exit the program after this 
-    int i_max_num_frames;	      // We exit the program after this 
-    int i_max_num_frames_per_episode; // Episode ends after this many frames
+	OSystem* p_osystem; // Pointer to the stella's OSystem
+	RomSettings* p_rom_settings; // An instance of the GameSettings class
 
-    int frame_number;
-    int episode_frame_number;
-    int episode_number;
-        
-    ActionVect  available_actions;
+	int i_max_num_episodes; // We exit the program after this
+	int i_max_num_frames; // We exit the program after this
+	int i_max_num_frames_per_episode; // Episode ends after this many frames
 
-    bool record_trajectory;
-    ActionVect action_trajectory;
-    std::vector<ALEState*> state_trajectory;
+	int frame_number;
+	int episode_frame_number;
+	int episode_number;
 
-    bool m_has_terminated;
-    ALEState*		curr_state;
-    string           m_alg_name;
-    string           m_rom_name;
-    bool             m_player_B;
+	ActionVect available_actions;
 
-    // Fake action set
+	bool record_trajectory;
+	ActionVect action_trajectory;
+	std::vector<ALEState*> state_trajectory;
+
+	bool m_has_terminated;
+	ALEState* curr_state;
+	string m_alg_name;
+	string m_rom_name;
+	bool m_player_B;
+
+	// Fake action set
 	int extended_action_set;
 };
-
-
 
 #endif // __PLAYER_AGENT_HPP__

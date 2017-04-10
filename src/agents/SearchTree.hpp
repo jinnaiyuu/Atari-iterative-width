@@ -68,11 +68,16 @@ public:
 	 ******************************************************************* */
 	virtual Action get_best_action(void);
 
+	// TODO: HACK
+	// Used for erroneous action model
+	Action set_best_action(Action a) {
+		p_root->best_branch = a;
+	}
 	/* *********************************************************************
 	 Moves the best sub-branch of the root to be the new root of the tree
 	 ******************************************************************* */
 	virtual void move_to_best_sub_branch(void);
-
+	virtual void move_to_branch(Action a, int duration);
 	/* *********************************************************************
 	 Returns the the best branch-value for root
 	 ******************************************************************* */
@@ -101,6 +106,9 @@ public:
 	int simulate_game_random(ALEState & state, ActionVect&action_set,
 			int num_steps, return_t &traj_return, bool &game_ended,
 			bool discount_return = false, bool save_state = true);
+	int simulate_game_err(ALEState & state, Action act, int num_steps,
+			return_t &traj_return, bool &game_ended, bool discount_return =
+					false, bool save_state = true);
 	/** Normalizes a reward using the first non-zero reward's magnitude */
 	return_t normalize(reward_t reward);
 	virtual unsigned max_depth() {
@@ -165,6 +173,7 @@ protected:
 //	std::vector<bool> getUsefulActions(vector<Action> previousActions);
 	std::vector<Action> getPreviousActions(const TreeNode* node,
 			int seqLength) const;
+	std::pair<Action, int> randomizeAction(Action a, int duration);
 
 protected:
 
@@ -230,6 +239,9 @@ protected:
 
 	// YJ: Use image for duplicate detection and every other things.
 	bool image_based;
+
+	bool erroneous_prediction;
+	float prediction_error_rate;
 };
 
 #endif // __SEARCH_TREE_HPP__

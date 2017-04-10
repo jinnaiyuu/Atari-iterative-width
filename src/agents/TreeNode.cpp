@@ -87,7 +87,9 @@ void TreeNode::updateTreeNode() {
 void TreeNode::init(SearchTree * tree, Action a, int num_simulate_steps) {
 	// Simulate from this state
 	return_t step_return;
-	num_simulated_steps = tree->simulate_game(state, a, num_simulate_steps,
+//	num_simulated_steps = tree->simulate_game(state, a, num_simulate_steps,
+//			step_return, is_terminal, false);
+	num_simulated_steps = tree->simulate_game_err(state, a, num_simulate_steps,
 			step_return, is_terminal, false);
 	node_reward = (reward_t) step_return;
 

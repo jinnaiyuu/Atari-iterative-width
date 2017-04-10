@@ -59,6 +59,7 @@ protected:
 
 	virtual void clear();
 	virtual void move_to_best_sub_branch();
+	virtual void move_to_branch(Action a, int duration);
 
 	ALERAM m_ram;
 	Features* m_novelty_feature;
