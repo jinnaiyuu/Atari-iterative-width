@@ -17,6 +17,8 @@ MODULE_OBJS := \
 	src/agents/FullSearchTree.o \
 	src/agents/UCTSearchTree.o \
 	src/agents/UCTTreeNode.o \
+	src/agents/Brute.o \
+	src/agents/BruteTreeNode.o \
 	src/agents/BreadthFirstSearch.o \
 	src/agents/IW1Search.o \
 	src/agents/PIW1Search.o \

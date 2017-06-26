@@ -46,6 +46,7 @@ protected:
 	 Returns the best action from the set of possible actions
 	 ******************************************************************** */
 	virtual Action act();
+//	virtual pair<Action, int> act_dur();
 
 	int num_available_actions();
 	ActionVect &get_available_actions();
@@ -54,8 +55,12 @@ protected:
 		if (search_tree)
 			search_tree->set_player_B(b);
 	}
+
+	Action randomizeAction(Action a);
 protected:
 	Action m_curr_action;
+	int m_curr_action_duration;
+	int m_curr_action_duration_left;
 	ALEState state;
 	RomSettings * m_rom_settings;
 	SearchTree * search_tree;
@@ -66,6 +71,8 @@ protected:
 	unsigned m_current_episode;
 	std::ofstream m_trace;
 
+	bool erroneous_action;
+	float action_error_rate;
 //	bool use_image;
 };
 

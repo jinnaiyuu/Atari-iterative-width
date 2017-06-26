@@ -36,6 +36,9 @@
 #include "SitePercolation.hpp"
 #include "BondPercolation.hpp"
 
+// YJ: Brute
+#include "Brute.hpp"
+
 SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 		StellaEnvironment* _env, bool player_B) :
 		PlayerAgent(_osystem, _settings), m_curr_action(UNDEFINED), m_current_episode(
@@ -94,6 +97,10 @@ SearchAgent::SearchAgent(OSystem* _osystem, RomSettings* _settings,
 		search_tree = new UCTSearchTree(_settings, _osystem->settings(),
 				available_actions, _env);
 		m_trace.open("uct.search-agent.trace");
+	} else if (search_method == "brute") {
+		search_tree = new Brute(_settings, _osystem->settings(),
+				available_actions, _env);
+		m_trace.open("brute.search-agent.trace");
 	} else {
 		cerr << "Unknown search Method: " << search_method << endl;
 		exit(-1);
