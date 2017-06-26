@@ -41,6 +41,11 @@ The Classical Planning algorithms are located in:
       * src/agents/DominatedActionSequenceAvoidance.hpp
       * src/agents/DominatedActionSequenceAvoidance.cpp
 
+  Brute (Bellemare et al 2013)
+ 
+      * src/agents/Brute.hpp
+      * src/agents/Brute.cpp
+
   2BFS
 
       * src/agents/BestFirstSearch.hpp
