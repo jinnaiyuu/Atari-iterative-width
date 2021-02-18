@@ -2,7 +2,7 @@
 
 This is a code for Dominated Action Sequence Detection/Avoidance presented in:
 
-Jinnai Y, Fukunaga A. 2017. Learning to Prune Dominated Action Sequences in Online Black-box Planning. Proc. 31st AAAI Conference on Artificial Intelligence (AAAI-17)
+[Jinnai Y, Fukunaga A. 2017. Learning to Prune Dominated Action Sequences in Online Black-box Planning. Proc. 31st AAAI Conference on Artificial Intelligence (AAAI-17)](https://ojs.aaai.org/index.php/AAAI/article/download/10663/10522)
 
 The code extends the work of Lipovetzky et al. (2015) (https://github.com/miquelramirez/ALE-Atari-Width).
 In addition to the original code we implemented p-IW1 which is presented in:
